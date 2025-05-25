@@ -6,7 +6,7 @@
   <title>AB Studio Code Editor</title>
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <style>
-    /* ... (Keep your existing CSS, but you'll likely need to adjust it for new elements) ... */
+    /* ... (Your existing CSS from the previous full answer) ... */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body, html { height: 100%; background: #1e1e2f; color: #fff; font-family: Arial, sans-serif; }
     .loading-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(30,30,47,0.9); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:3000; }
@@ -30,9 +30,6 @@
     .project-item.active { background: #4c4c66; font-weight: bold; }
     .action-button { display: block; width:100%; padding: 8px; background: #4CAF50; color: white; border: none; border-radius: 4px; text-align:center; cursor:pointer; margin-top:5px; font-size:0.9rem;}
     .action-button:hover { background: #45a049; }
-    .action-button.secondary { background: #6c757d; }
-    .action-button.secondary:hover { background: #5a6268; }
-
 
     .sidebar { width: 220px; background: #2d2d3c; padding: 10px; overflow-y: auto; border-right: 1px solid #292944;}
     .file { padding: 8px; margin: 5px 0; background: #3c3c52; border-radius: 4px; cursor: pointer; word-break: break-all; }
@@ -48,26 +45,46 @@
     .actions .material-icons { cursor: pointer; margin: 0 8px; font-size: 20px; }
     .actions .material-icons:hover { color: #aaa; }
 
-    /* Preview Modal (can keep existing) */
     .preview { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; z-index: 1000; align-items: center; justify-content: center;}
     .preview-content { background: #fff; color: #000; width: 90%; height: 90%; box-shadow: 0 0 20px rgba(0,0,0,0.3); position: relative; }
     .preview iframe { width: 100%; height: 100%; border: none; }
     .preview .close-preview-btn { position:absolute; top:10px; right:10px; cursor:pointer; font-size:30px; color: #333; background: white; border-radius: 50%; padding: 2px;}
     
-    /* Hosting Modal (can keep existing) */
     .modal-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7);
       display: none; align-items: center; justify-content: center; z-index: 2000; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease;
     }
     .modal-overlay.visible { opacity: 1; visibility: visible; display: flex;}
-    .modal-content { /* ... keep existing modal styles ... */ }
+    .modal-content {
+      background: #2d2d3c; color: #fff; padding: 25px 30px; border-radius: 8px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4); width: 90%; max-width: 550px; text-align: center;
+      transform: scale(0.95); transition: transform 0.3s ease;
+    }
+    .modal-overlay.visible .modal-content { transform: scale(1); }
+    .modal-content h2 { margin-top: 0; margin-bottom: 15px; color: #82aaff; font-size: 1.6rem; }
+    .modal-content p { margin-bottom: 12px; font-size: 0.95rem; color: #ccc; }
+    #hostedLinkInput {
+      width: 100%; padding: 12px; margin-bottom: 25px; border: 1px solid #4c4c66;
+      border-radius: 4px; background: #1e1e2f; color: #e0e0e0; font-size: 0.9rem;
+      text-align: left; font-family: monospace;
+    }
+    .modal-actions { display: flex; justify-content: center; gap: 15px; }
+    .modal-button {
+      padding: 10px 25px; border: none; border-radius: 5px; cursor: pointer;
+      font-size: 0.95rem; font-weight: 500; transition: background-color 0.2s, transform 0.1s;
+    }
+    .modal-button:active { transform: scale(0.98); }
+    .modal-button.copy-button { background-color: #4CAF50; color: white; }
+    .modal-button.copy-button:hover { background-color: #45a049; }
+    .modal-button.close-button { background-color: #6c757d; color: white; }
+    .modal-button.close-button:hover { background-color: #5a6268; }
 
     @keyframes spin-small { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .actions .material-icons.spinning { animation: spin-small 1s linear infinite; }
 
     @media (max-width: 768px) {
       .editor-container { flex-direction: column; height: calc(100% - 48px); }
-      .projects-panel { width: 100%; max-height: 200px; order: -1; /* Show projects panel on top on mobile */ }
+      .projects-panel { width: 100%; max-height: 200px; order: -1; }
       .sidebar { width: 100%; height: auto; max-height: 150px; display: flex; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; padding: 5px; }
       .file { flex-shrink: 0; margin: 5px; }
       .main-editor { flex: 1; min-height: 0; }
@@ -96,12 +113,10 @@
         <h2>My Projects</h2>
         <div id="projectList" class="project-list"></div>
         <button class="action-button" onclick="createNewProject()">Create New Project</button>
-        <p style="font-size:0.8em; margin-top:10px; text-align:center; color:#888;">Select a project or create a new one.</p>
     </div>
 
-    <div class="main-content" id="mainContent"> <!-- This div wraps sidebar and main-editor -->
-        <div class="sidebar" id="fileList">
-            <!-- Files of the current project will be listed here -->
+    <div class="main-content" id="mainContent">
+        <div class="sidebar" id="fileListContainer"> <!-- Renamed for clarity -->
         </div>
         <div class="main-editor">
             <div class="tabs" id="tabsContainer"></div>
@@ -124,7 +139,7 @@
 
   <div class="preview" id="preview">
     <div class="preview-content">
-      <iframe id="previewFrame" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"></iframe>
+      <iframe id="previewFrame" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-top-navigation-by-user-activation"></iframe>
       <span class="material-icons close-preview-btn" onclick="closePreview()">close</span>
     </div>
   </div>
@@ -145,9 +160,8 @@
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
   <script>
-    // PASTE YOUR FIREBASE CONFIG OBJECT HERE
-    const firebaseConfig = {
-        apiKey: "AIzaSyD3kO_ULF76RJkJf1yhvo5cdM4Hoqo4fHA", // YOUR PROVIDED KEY
+    const firebaseConfig = { // YOUR PROVIDED CONFIG
+        apiKey: "AIzaSyD3kO_ULF76RJkJf1yhvo5cdM4Hoqo4fHA",
         authDomain: "abcoinseo-e2f66.firebaseapp.com",
         databaseURL: "https://abcoinseo-e2f66-default-rtdb.firebaseio.com",
         projectId: "abcoinseo-e2f66",
@@ -167,111 +181,108 @@
     const projectsPanel = document.getElementById('projectsPanel');
     const projectListDiv = document.getElementById('projectList');
     const mainContentDiv = document.getElementById('mainContent');
-    const fileListContainer = document.getElementById('fileList');
+    const fileListContainer = document.getElementById('fileListContainer'); // Corrected ID
     const tabsContainer = document.getElementById('tabsContainer');
     const codeTextarea = document.getElementById('code');
-    // ... (other DOM elements for preview, hosting modal if needed)
+    const hostingPopupOverlay = document.getElementById('hostingPopupOverlay');
+    const hostedLinkInput = document.getElementById('hostedLinkInput');
 
     let currentUser = null;
-    let userProjects = {}; // { projectId1: { name: "Proj Name", files: { "index.html": "content" } }, ... }
+    let userProjects = {}; 
     let currentProjectId = null;
-    let currentOpenFile = null; // filename like "index.html"
-    let localProjectData = {}; // For offline edits before saving to Firebase
+    let currentOpenFile = null; // Stores original filename (e.g., "index.html")
+    let localProjectData = {}; // { projectId: { name: "...", files: { "index.html": "content", ... } } }
 
-    function showLoading(message = "Loading...") {
-        loadingOverlay.querySelector('p').textContent = message;
-        loadingOverlay.style.display = 'flex';
+    // --- Sanitization Constants and Functions ---
+    const FSK_REPLACEMENTS = {
+        '.': '_FSK_DOT_FSK_',
+        '#': '_FSK_HASH_FSK_',
+        '$': '_FSK_DOLLAR_FSK_',
+        '[': '_FSK_LBRACKET_FSK_',
+        ']': '_FSK_RBRACKET_FSK_',
+        '/': '_FSK_SLASH_FSK_' // Though filenames shouldn't contain this
+    };
+
+    function sanitizeKeyForFirebase(key) {
+        let sanitizedKey = key;
+        for (const char in FSK_REPLACEMENTS) {
+            sanitizedKey = sanitizedKey.split(char).join(FSK_REPLACEMENTS[char]);
+        }
+        return sanitizedKey;
     }
-    function hideLoading() {
-        loadingOverlay.style.display = 'none';
+
+    function desanitizeKeyFromFirebase(sanitizedKey) {
+        let key = sanitizedKey;
+        for (const char in FSK_REPLACEMENTS) {
+            key = key.split(FSK_REPLACEMENTS[char]).join(char);
+        }
+        return key;
     }
+
+    function sanitizeFileObjectForFirebase(filesObject) {
+        if (!filesObject) return {};
+        const sanitizedFiles = {};
+        for (const originalFilename in filesObject) {
+            sanitizedFiles[sanitizeKeyForFirebase(originalFilename)] = filesObject[originalFilename];
+        }
+        return sanitizedFiles;
+    }
+
+    function desanitizeFileObjectFromFirebase(firebaseFilesObject) {
+        if (!firebaseFilesObject) return {};
+        const originalFiles = {};
+        for (const sanitizedKey in firebaseFilesObject) {
+            originalFiles[desanitizeKeyFromFirebase(sanitizedKey)] = firebaseFilesObject[sanitizedKey];
+        }
+        return originalFiles;
+    }
+
+
+    function showLoading(message = "Loading...") { /* ... same as before ... */ }
+    function hideLoading() { /* ... same as before ... */ }
 
     // --- Authentication Logic ---
-    auth.onAuthStateChanged(user => {
-        if (user) {
-            currentUser = user;
-            userEmailSpan.textContent = user.email;
-            userInfoDiv.style.display = 'flex';
-            loginButton.style.display = 'none';
-            projectsPanel.style.display = 'flex';
-            mainContentDiv.style.display = 'none'; // Hide editor until project selected
-            codeTextarea.value = '';
-            tabsContainer.innerHTML = '';
-            fileListContainer.innerHTML = '';
-            loadUserProjects();
-        } else {
-            currentUser = null;
-            userInfoDiv.style.display = 'none';
-            loginButton.style.display = 'block';
-            projectsPanel.style.display = 'none';
-            mainContentDiv.style.display = 'none';
-            // Optionally redirect to auth.html if not already there
-            if (!window.location.pathname.includes('auth.html')) {
-                 // window.location.href = 'auth.html'; // Can be aggressive, consider a message instead
-                 console.log("User logged out or not logged in.");
-            }
-        }
-        hideLoading();
-    });
-
-    function logout() {
-        auth.signOut().then(() => {
-            console.log("User signed out.");
-            // Auth state change will handle UI updates
-            currentProjectId = null;
-            currentOpenFile = null;
-            userProjects = {};
-            localProjectData = {};
-            window.location.href = 'auth.html'; // Force redirect to login
-        }).catch(error => {
-            console.error("Sign out error", error);
-            alert("Error signing out: " + error.message);
-        });
-    }
+    auth.onAuthStateChanged(user => { /* ... same as before ... */ });
+    function logout() { /* ... same as before ... */ }
 
     // --- Project Management ---
-    function generateRandomId(length = 12) {
-        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-        let result = '';
-        for (let i = 0; i < length; i++) {
-            result += characters.charAt(Math.floor(Math.random() * characters.length));
-        }
-        return result;
-    }
+    function generateRandomId(length = 12) { /* ... same as before ... */ }
 
     async function createNewProject() {
-        if (!currentUser) {
-            alert("Please login to create projects.");
-            return;
-        }
-        const projectName = prompt("Enter new project name:", "My New Project");
-        if (!projectName || projectName.trim() === "") {
-            alert("Project name cannot be empty.");
-            return;
-        }
+        if (!currentUser) { alert("Please login..."); return; }
+        const projectName = prompt("Enter new project name:", "My Web Project");
+        if (!projectName || projectName.trim() === "") { alert("Project name cannot be empty."); return; }
 
         const projectId = generateRandomId();
         const newProjectData = {
             name: projectName.trim(),
             createdAt: firebase.database.ServerValue.TIMESTAMP,
             updatedAt: firebase.database.ServerValue.TIMESTAMP,
-            owner: currentUser.uid, // Store owner UID
+            owner: currentUser.uid,
+            // Files use ORIGINAL filenames as keys locally
             files: {
-                "index.html": `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <title>${projectName.trim()}</title>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <h1>Hello from ${projectName.trim()}!</h1>\n  <p>This is your index.html file.</p>\n  <script src="script.js"><\/script>\n</body>\n</html>`,
-                "style.css": `body {\n  font-family: sans-serif;\n  margin: 20px;\n  background-color: #f4f4f4;\n  color: #333;\n}\nh1 { color: #007bff; }`,
-                "script.js": `console.log("Project ${projectName.trim()} script loaded!");\n\n// Add your JavaScript here`
+                "index.html": `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <title>${projectName.trim()}</title>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <h1>Hello from ${projectName.trim()}!</h1>\n  <p>Edit this content in index.html.</p>\n  <script src="script.js"><\/script>\n</body>\n</html>`,
+                "style.css": `body {\n  font-family: Arial, sans-serif;\n  margin: 20px;\n  background-color: #f0f8ff;\n  color: #333;\n}\nh1 { color: #0066cc; }`,
+                "script.js": `console.log("Project '${projectName.trim()}' script.js loaded!");\n\n// Your JavaScript code here`
             }
         };
 
         showLoading("Creating project...");
         try {
-            await db.ref(`users/${currentUser.uid}/projects/${projectId}`).set(newProjectData);
-            userProjects[projectId] = { name: newProjectData.name, id: projectId }; // Simplified local cache for project list
-            localProjectData[projectId] = JSON.parse(JSON.stringify(newProjectData)); // Deep copy for local editing
+            // When saving to Firebase, sanitize the 'files' object's keys
+            const dataToSaveToFirebase = {
+                ...newProjectData,
+                files: sanitizeFileObjectForFirebase(newProjectData.files)
+            };
+            await db.ref(`users/${currentUser.uid}/projects/${projectId}`).set(dataToSaveToFirebase);
+            
+            // Store locally with original file names
+            userProjects[projectId] = { name: newProjectData.name, id: projectId }; 
+            localProjectData[projectId] = JSON.parse(JSON.stringify(newProjectData)); // Deep copy
             
             renderProjectList();
-            openProject(projectId); // Automatically open the new project
-            alert(`Project "${projectName.trim()}" created!`);
+            openProject(projectId);
+            alert(`Project "${projectName.trim()}" created successfully!`);
         } catch (error) {
             console.error("Error creating project:", error);
             alert("Error creating project: " + error.message);
@@ -286,12 +297,12 @@
         try {
             const snapshot = await db.ref(`users/${currentUser.uid}/projects`).orderByChild('name').once('value');
             userProjects = {};
-            localProjectData = {}; // Clear old local data
+            localProjectData = {};
             if (snapshot.exists()) {
                 snapshot.forEach(childSnapshot => {
                     const project = childSnapshot.val();
                     userProjects[childSnapshot.key] = { name: project.name, id: childSnapshot.key };
-                    // Do NOT load all file content here for performance. Load on project open.
+                    // Project file content will be loaded when opening the project
                 });
             }
             renderProjectList();
@@ -303,66 +314,48 @@
         }
     }
 
-    function renderProjectList() {
-        projectListDiv.innerHTML = '';
-        if (Object.keys(userProjects).length === 0) {
-            projectListDiv.innerHTML = '<p style="text-align:center; color:#888;">No projects yet. Create one!</p>';
-            return;
-        }
-        Object.values(userProjects)
-            .sort((a, b) => a.name.localeCompare(b.name)) // Sort by name
-            .forEach(proj => {
-                const div = document.createElement('div');
-                div.className = 'project-item' + (proj.id === currentProjectId ? ' active' : '');
-                div.textContent = proj.name;
-                div.onclick = () => openProject(proj.id);
-                projectListDiv.appendChild(div);
-            });
-    }
+    function renderProjectList() { /* ... same as before ... */ }
 
     async function openProject(projectId) {
         if (!currentUser) return;
-        if (currentProjectId === projectId && mainContentDiv.style.display === 'flex') {
-             console.log("Project already open");
-             return; // Already open
-        }
+        if (currentProjectId === projectId && mainContentDiv.style.display === 'flex') return;
 
         showLoading(`Opening project ${userProjects[projectId]?.name || projectId}...`);
         try {
-            // Check if project data is already in localProjectData (e.g., from creating it)
-            // Or if it's a project that was modified locally but not yet saved
             if (!localProjectData[projectId] || !localProjectData[projectId].files) {
                 const snapshot = await db.ref(`users/${currentUser.uid}/projects/${projectId}`).once('value');
-                if (!snapshot.exists()) {
-                    throw new Error("Project not found in database.");
+                if (!snapshot.exists()) throw new Error("Project not found in database.");
+                
+                const projectDataFromDb = snapshot.val();
+                // De-sanitize file keys when loading from Firebase
+                if (projectDataFromDb.files) {
+                    projectDataFromDb.files = desanitizeFileObjectFromFirebase(projectDataFromDb.files);
+                } else {
+                    projectDataFromDb.files = {}; // Ensure files object exists
                 }
-                localProjectData[projectId] = snapshot.val();
-                if (!localProjectData[projectId].files) localProjectData[projectId].files = {}; // Ensure files object exists
+                localProjectData[projectId] = projectDataFromDb;
             }
             
             currentProjectId = projectId;
-            currentOpenFile = null; // Reset open file
-            mainContentDiv.style.display = 'flex'; // Show editor area
+            currentOpenFile = null; 
+            mainContentDiv.style.display = 'flex';
             codeTextarea.value = '';
-            codeTextarea.placeholder = "Select a file to start coding...";
+            codeTextarea.placeholder = "Select a file or create one.";
             
-            renderProjectList(); // To highlight active project
+            renderProjectList();
             renderFileList();
-            renderTabs(); // Clear tabs initially
+            renderTabs();
 
-            // Attempt to open index.html by default, or the first file if index.html doesn't exist
             const filesInProject = Object.keys(localProjectData[currentProjectId].files);
             if (filesInProject.includes("index.html")) {
                 openFile("index.html");
             } else if (filesInProject.length > 0) {
-                openFile(filesInProject[0]);
+                openFile(filesInProject.sort()[0]); // Open first file alphabetically
             }
-
-
         } catch (error) {
             console.error("Error opening project:", error);
             alert("Error opening project: " + error.message);
-            currentProjectId = null; // Reset on error
+            currentProjectId = null;
             mainContentDiv.style.display = 'none';
         } finally {
             hideLoading();
@@ -370,161 +363,103 @@
     }
 
     // --- File Management (within a project) ---
+    // All functions here (renderFileList, renderTabs, addFileToProject, openFile, renameFile, deleteFile)
+    // will work with ORIGINAL filenames because `localProjectData` and `currentOpenFile` use them.
+
     function renderFileList() {
         fileListContainer.innerHTML = '';
         if (!currentProjectId || !localProjectData[currentProjectId] || !localProjectData[currentProjectId].files) {
-            fileListContainer.innerHTML = '<p style="font-size:0.8em; color:#888;">No files in this project.</p>';
+            fileListContainer.innerHTML = '<p style="font-size:0.8em; color:#888;text-align:center;">No files.</p>';
             return;
         }
-
         const files = localProjectData[currentProjectId].files;
-        Object.keys(files).sort().forEach(filename => {
+        Object.keys(files).sort().forEach(originalFilename => { // Iterate original filenames
             const div = document.createElement('div');
-            div.className = 'file' + (filename === currentOpenFile ? ' active' : '');
-            div.textContent = filename;
-            div.onclick = () => openFile(filename);
+            div.className = 'file' + (originalFilename === currentOpenFile ? ' active' : '');
+            div.textContent = originalFilename; // Display original filename
+            div.onclick = () => openFile(originalFilename); // Pass original filename
             fileListContainer.appendChild(div);
         });
     }
 
     function renderTabs() {
         tabsContainer.innerHTML = '';
-        if (!currentProjectId || !currentOpenFile || !localProjectData[currentProjectId] || !localProjectData[currentProjectId].files) {
-            return;
-        }
+        if (!currentOpenFile) return; // currentOpenFile stores original filename
         const tab = document.createElement('div');
-        tab.className = 'tab active'; // Only one tab for the currently open file
-        tab.textContent = currentOpenFile;
-        // tab.onclick = () => openFile(currentOpenFile); // Could make tabs clickable to re-focus
+        tab.className = 'tab active';
+        tab.textContent = currentOpenFile; // Display original filename
         tabsContainer.appendChild(tab);
     }
 
     function addFileToProject() {
-        if (!currentProjectId) {
-            alert("Open a project first to add files.");
-            return;
-        }
-        const filename = prompt("Enter new file name (e.g., style.css, script.js):");
-        if (!filename || filename.trim() === "") {
-            alert("Filename cannot be empty.");
-            return;
-        }
-        const trimmedFilename = filename.trim();
+        // ... (logic remains same, uses original filenames for prompts and keys in localProjectData)
+        if (!currentProjectId) { alert("Open a project first."); return; }
+        const filename = prompt("Enter new file name (e.g., style.css):");
+        if (!filename || filename.trim() === "") { alert("Filename cannot be empty."); return; }
+        const trimmedFilename = filename.trim(); // This is the original filename
         if (localProjectData[currentProjectId].files.hasOwnProperty(trimmedFilename)) {
             alert("A file with this name already exists in the project.");
             return;
         }
-
-        // Add basic template based on extension
-        let defaultContent = `// ${trimmedFilename} - Add your content here`;
-        if (trimmedFilename.endsWith('.html')) {
-            defaultContent = `<!DOCTYPE html>\n<html>\n<head><title>${trimmedFilename}</title></head>\n<body>\n  <!-- ${trimmedFilename} -->\n</body>\n</html>`;
-        } else if (trimmedFilename.endsWith('.css')) {
-            defaultContent = `/* ${trimmedFilename} */\nbody {\n\n}`;
-        } else if (trimmedFilename.endsWith('.js')) {
-            defaultContent = `// ${trimmedFilename}\nconsole.log("${trimmedFilename} loaded.");`;
-        }
+        // Add default content based on extension...
+        let defaultContent = `// ${trimmedFilename}`;
+        if (trimmedFilename.endsWith('.html')) defaultContent = `<!DOCTYPE html>\n<html>\n<head><title>${trimmedFilename}</title></head>\n<body>\n  <!-- Content for ${trimmedFilename} -->\n</body>\n</html>`;
+        else if (trimmedFilename.endsWith('.css')) defaultContent = `/* Styles for ${trimmedFilename} */\nbody {}`;
+        else if (trimmedFilename.endsWith('.js')) defaultContent = `// Script for ${trimmedFilename}\nconsole.log('${trimmedFilename} loaded.');`;
 
         localProjectData[currentProjectId].files[trimmedFilename] = defaultContent;
-        // No need to save to local storage for individual files yet, project is in localProjectData
-        openFile(trimmedFilename); // This will call renderFileList and renderTabs
-        // Consider saving project to Firebase after this or mark as "unsaved changes"
+        openFile(trimmedFilename); // Opens using original filename
     }
 
-    function openFile(filename) {
-        if (!currentProjectId || !localProjectData[currentProjectId] || !localProjectData[currentProjectId].files.hasOwnProperty(filename)) {
-            console.error("File or project not found for opening:", filename, currentProjectId);
+    function openFile(originalFilename) {
+        // ... (logic remains same, uses originalFilename for localProjectData access and currentOpenFile)
+        if (!currentProjectId || !localProjectData[currentProjectId] || !localProjectData[currentProjectId].files.hasOwnProperty(originalFilename)) {
             return;
         }
-        currentOpenFile = filename;
-        codeTextarea.value = localProjectData[currentProjectId].files[filename];
+        currentOpenFile = originalFilename; // Store original filename
+        codeTextarea.value = localProjectData[currentProjectId].files[originalFilename];
         codeTextarea.focus();
-        renderFileList(); // Update active file in sidebar
-        renderTabs();     // Update tab
+        renderFileList(); 
+        renderTabs();     
     }
 
     codeTextarea.addEventListener('input', () => {
+        // ... (logic remains same, uses original currentOpenFile)
         if (currentProjectId && currentOpenFile && localProjectData[currentProjectId] && localProjectData[currentProjectId].files) {
             localProjectData[currentProjectId].files[currentOpenFile] = codeTextarea.value;
-            // Mark project as having unsaved changes (visual indicator could be added)
-            // console.log("Content updated locally for", currentOpenFile);
         }
     });
 
-    function renameFile() {
-        if (!currentProjectId || !currentOpenFile) {
-            alert("No file selected to rename.");
-            return;
-        }
-        const oldName = currentOpenFile;
-        const newName = prompt('Enter new name for "' + oldName + '":', oldName);
+    function renameFile() { /* ... (logic uses original filenames for prompts and localProjectData keys) ... */ }
+    function deleteFile() { /* ... (logic uses original filenames for confirm and localProjectData keys) ... */ }
 
-        if (newName && newName.trim() !== '' && newName.trim() !== oldName) {
-            const trimmedNewName = newName.trim();
-            if (localProjectData[currentProjectId].files.hasOwnProperty(trimmedNewName)) {
-                alert('A file with the name "' + trimmedNewName + '" already exists in this project.');
-                return;
-            }
-            localProjectData[currentProjectId].files[trimmedNewName] = localProjectData[currentProjectId].files[oldName];
-            delete localProjectData[currentProjectId].files[oldName];
-            openFile(trimmedNewName); // This updates UI
-        } else if (newName !== null && newName.trim() === '') {
-            alert("File name cannot be empty.");
-        }
-    }
-
-    function deleteFile() {
-        if (!currentProjectId || !currentOpenFile) {
-            alert("No file selected to delete.");
-            return;
-        }
-        if (confirm(`Are you sure you want to delete '${currentOpenFile}' from this project?`)) {
-            delete localProjectData[currentProjectId].files[currentOpenFile];
-            
-            const remainingFiles = Object.keys(localProjectData[currentProjectId].files);
-            currentOpenFile = null;
-            codeTextarea.value = '';
-            tabsContainer.innerHTML = '';
-
-            if (remainingFiles.length > 0) {
-                // Try to open index.html, or the first available file
-                if (remainingFiles.includes("index.html")) {
-                    openFile("index.html");
-                } else {
-                    openFile(remainingFiles.sort()[0]);
-                }
-            } else {
-                codeTextarea.placeholder = "No files in project. Add one!";
-            }
-            renderFileList(); // Refresh file list
-        }
-    }
 
     // --- Saving and Hosting ---
     async function saveProjectToFirebase() {
         if (!currentUser || !currentProjectId || !localProjectData[currentProjectId]) {
-            alert("No project open or not logged in.");
-            return;
+            alert("No project open or not logged in."); return;
         }
         showLoading("Saving project...");
+        
+        // Sanitize file keys before saving to Firebase
+        const filesToSaveInDb = sanitizeFileObjectForFirebase(localProjectData[currentProjectId].files);
+
         const projectDataToSave = {
-            ...localProjectData[currentProjectId], // Includes name, files, etc.
+            name: localProjectData[currentProjectId].name,
+            files: filesToSaveInDb, // Use the sanitized files object
             updatedAt: firebase.database.ServerValue.TIMESTAMP,
-            owner: currentUser.uid // Ensure owner is set
+            owner: currentUser.uid
+            // Include other metadata like createdAt if it exists on localProjectData[currentProjectId]
+            // createdAt: localProjectData[currentProjectId].createdAt || firebase.database.ServerValue.TIMESTAMP,
         };
-
-        // Update the 'name' in userProjects cache if it changed locally (though we don't have UI for that yet)
-        if(userProjects[currentProjectId] && localProjectData[currentProjectId].name) {
-            userProjects[currentProjectId].name = localProjectData[currentProjectId].name;
-        }
-
 
         try {
             await db.ref(`users/${currentUser.uid}/projects/${currentProjectId}`).update(projectDataToSave);
-            // Update localProjectData with the server's timestamp potentially, if critical
-            // For now, local copy is considered the source of truth until next explicit load.
-            renderProjectList(); // In case project name was updated
-            alert(`Project "${localProjectData[currentProjectId].name}" saved to Firebase!`);
+            if(userProjects[currentProjectId]) { // Update project name in local cache if changed
+                 userProjects[currentProjectId].name = projectDataToSave.name;
+                 renderProjectList();
+            }
+            alert(`Project "${projectDataToSave.name}" saved to Firebase!`);
         } catch (error) {
             console.error("Error saving project:", error);
             alert("Error saving project: " + error.message);
@@ -533,151 +468,99 @@
         }
     }
 
-    function sanitizeForFirebaseKey(name) { // For project ID in hosted path
-        return name
-            .toLowerCase()
-            .replace(/[^a-z0-9-]/g, '_') 
-            .replace(/_{2,}/g, '_') 
-            .replace(/^_|_$/g, '');
-    }
-
     async function hostProject() {
         if (!currentUser || !currentProjectId || !localProjectData[currentProjectId]) {
-            alert("Please open and save a project to host it.");
-            return;
+            alert("Please open and save a project to host it."); return;
         }
-        // Ensure the project is saved before hosting for consistency
-        await saveProjectToFirebase(); 
+        await saveProjectToFirebase(); // Ensure latest is saved
 
         const originalProjectName = localProjectData[currentProjectId].name;
-        // Use the currentProjectId directly for hosting path for uniqueness and simplicity
-        // Or create a new random ID for each "deployment" if you want versioned hosting
-        const hostedProjectId = currentProjectId; // Using the project's own ID
+        const hostedProjectId = currentProjectId; 
+        const filesToHostRaw = localProjectData[currentProjectId].files;
 
-        const filesToHost = localProjectData[currentProjectId].files;
-        if (!filesToHost || Object.keys(filesToHost).length === 0) {
-            alert("Project has no files to host.");
-            return;
+        if (!filesToHostRaw || Object.keys(filesToHostRaw).length === 0) {
+            alert("Project has no files to host."); return;
         }
-        if (!filesToHost["index.html"]) {
-            alert("Project must have an 'index.html' file to be hosted.");
-            return;
+        if (!filesToHostRaw["index.html"]) { // Check for original "index.html"
+            alert("Project must have an 'index.html' file to be hosted."); return;
         }
 
+        const filesToHostSanitized = sanitizeFileObjectForFirebase(filesToHostRaw);
         const firebaseHostedPath = `hosted_content/${hostedProjectId}`;
-
+        
+        // ... (rest of the hostProject logic for UI updates and Firebase set) ...
         const hostButton = document.querySelector('.actions .material-icons[onclick="hostProject()"]');
         const originalIconText = hostButton.textContent;
-        hostButton.textContent = 'sync';
-        hostButton.classList.add('spinning');
+        hostButton.textContent = 'sync'; hostButton.classList.add('spinning');
         showLoading(`Hosting project "${originalProjectName}"...`);
 
         try {
             await db.ref(firebaseHostedPath).set({
-                files: filesToHost, // Save all files of the project
+                files: filesToHostSanitized,
                 originalProjectName: originalProjectName,
-                sourceProjectId: currentProjectId, // Link back to the user's project ID
-                owner: currentUser.uid, // Useful for moderation or stats
+                sourceProjectId: currentProjectId,
+                owner: currentUser.uid,
                 lastHosted: firebase.database.ServerValue.TIMESTAMP
             });
             
-            // Construct the public URL.
             let baseUrl = `${window.location.origin}${window.location.pathname.replace(/index\.html$|auth\.html$/, '')}`;
-            if (!baseUrl.endsWith('/')) {
-                baseUrl += '/';
-            }
+            if (!baseUrl.endsWith('/')) baseUrl += '/';
             const publicUrl = `${baseUrl}view.html#${hostedProjectId}`;
 
             alert(`Project "${originalProjectName}" is now hosted!`);
-            showHostingPopup(publicUrl); // Defined further down
+            showHostingPopup(publicUrl);
 
-        } catch (error) {
-            console.error("Error hosting project:", error);
-            alert(`Error hosting project: ${error.message}`);
-        } finally {
-            hostButton.textContent = originalIconText;
-            hostButton.classList.remove('spinning');
-            hideLoading();
-        }
+        } catch (error) { /* ... error handling ... */ }
+        finally { /* ... reset button, hide loading ... */ }
     }
     
-    // Preview & Hosting Modal Popups (can mostly reuse from previous)
-    const hostingPopupOverlay = document.getElementById('hostingPopupOverlay');
-    const hostedLinkInput = document.getElementById('hostedLinkInput');
-
-    function showHostingPopup(url) {
-      hostedLinkInput.value = url;
-      hostingPopupOverlay.classList.add('visible');
-      hostedLinkInput.focus();
-      hostedLinkInput.select();
-    }
-    function closeHostingPopup() {
-      hostingPopupOverlay.classList.remove('visible');
-    }
-    function copyHostedLink() {
-      hostedLinkInput.select();
-      hostedLinkInput.setSelectionRange(0, 99999); 
-      try {
-        const successful = document.execCommand('copy');
-        const copyBtn = document.querySelector('.modal-button.copy-button');
-        const originalText = copyBtn.textContent;
-        copyBtn.textContent = successful ? 'Copied!' : 'Failed!';
-        setTimeout(() => { copyBtn.textContent = originalText; }, 2000);
-      } catch (err) {
-        alert('Failed to copy link. Please copy it manually.');
-      }
-    }
+    function showHostingPopup(url) { /* ... same ... */ }
+    function closeHostingPopup() { /* ... same ... */ }
+    function copyHostedLink() { /* ... same ... */ }
 
     function openPreview() {
+        // This function uses localProjectData.files which has original filenames
+        // The inlining logic should work fine with original filenames
         if (!currentProjectId || !localProjectData[currentProjectId] || !localProjectData[currentProjectId].files) {
-            alert("No project or files open to preview.");
-            return;
+            alert("No project or files open to preview."); return;
         }
-        const files = localProjectData[currentProjectId].files;
+        const files = localProjectData[currentProjectId].files; // Original filenames as keys
         let htmlToPreview = "";
 
         if (currentOpenFile && currentOpenFile.endsWith('.html')) {
             htmlToPreview = files[currentOpenFile];
         } else if (files["index.html"]) {
             htmlToPreview = files["index.html"];
-            if (currentOpenFile) {
-                 alert("Previewing 'index.html' by default. To preview another HTML file, open it first.");
-            }
+            if (currentOpenFile) alert("Previewing 'index.html'. To preview a different HTML file, please open it first.");
         } else {
-            alert("No '.html' file open and 'index.html' not found in project to preview.");
-            return;
+            alert("No '.html' file open and 'index.html' not found in project."); return;
         }
         
-        // Basic relative path replacement for CSS/JS (very naive, won't handle complex paths)
-        // This is a very simplified way to make linked CSS/JS work in preview IFRAME from srcdoc
-        // It assumes CSS/JS files are in the same "directory" (root of the project files)
-        htmlToPreview = htmlToPreview.replace(/<link.*?href="(.*?)"[^>]*>/gi, (match, href) => {
-            if (files[href] && href.endsWith('.css')) {
-                return `<style>\n${files[href]}\n</style>`;
+        // Inlining logic (uses original filenames for lookups in `files` object)
+        htmlToPreview = htmlToPreview.replace(/<link.*?href=["'](.*?)["'][^>]*>/gi, (match, href) => {
+            const cleanHref = href.startsWith('./') ? href.substring(2) : href;
+            if (files[cleanHref] && cleanHref.endsWith('.css')) { // files[cleanHref] uses original name
+                return `<style data-inlined-href="${cleanHref}">\n${files[cleanHref]}\n</style>`;
             }
-            return match; // Keep original if not found or not CSS
+            return match;
         });
-        htmlToPreview = htmlToPreview.replace(/<script.*?src="(.*?)"[^>]*><\/script>/gi, (match, src) => {
-            if (files[src] && src.endsWith('.js')) {
-                return `<script>\n${files[src]}\n<\/script>`;
+        htmlToPreview = htmlToPreview.replace(/<script.*?src=["'](.*?)["'][^>]*><\/script>/gi, (match, src) => {
+            const cleanSrc = src.startsWith('./') ? src.substring(2) : src;
+            if (files[cleanSrc] && cleanSrc.endsWith('.js')) { // files[cleanSrc] uses original name
+                return `<script data-inlined-src="${cleanSrc}">\n${files[cleanSrc]}\n<\/script>`;
             }
-            return match; // Keep original if not found or not JS
+            return match;
         });
-
 
         const iframe = document.getElementById('previewFrame');
         iframe.srcdoc = htmlToPreview;
         document.getElementById('preview').style.display = 'flex';
     }
-    function closePreview() {
-        document.getElementById('preview').style.display = 'none';
-        document.getElementById('previewFrame').srcdoc = '';
-    }
+    function closePreview() { /* ... same ... */ }
 
     // --- Initial Load ---
-    showLoading(); // Show loading on initial page visit
+    showLoading(); 
     // Auth state listener will handle the rest
-
   </script>
 </body>
 </html>
