@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - AB Studio</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        body, html { height: 100%; margin: 0; font-family: Arial, sans-serif; background: #1e1e2f; color: #fff; display: flex; align-items: center; justify-content: center; }
+        .auth-container { background: #2d2d3c; padding: 30px 40px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); width: 100%; max-width: 400px; text-align: center; }
+        .auth-container h1 { margin-bottom: 25px; color: #82aaff; font-size: 1.8rem; }
+        .input-group { margin-bottom: 20px; text-align: left; }
+        .input-group label { display: block; margin-bottom: 8px; font-size: 0.9rem; color: #ccc; }
+        .input-group input { width: 100%; padding: 12px; border: 1px solid #4c4c66; background: #1e1e2f; color: #fff; border-radius: 4px; font-size: 1rem; box-sizing: border-box; }
+        .auth-button { width: 100%; padding: 12px; background: #4CAF50; color: white; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer; transition: background-color 0.2s; margin-top: 10px; }
+        .auth-button:hover { background: #45a049; }
+        .toggle-form { color: #82aaff; cursor: pointer; margin-top: 20px; display: inline-block; font-size: 0.9rem; }
+        .toggle-form:hover { text-decoration: underline; }
+        .error-message { color: #ff6b6b; margin-top: 15px; font-size: 0.9rem; min-height: 1.2em; } /* Ensure space for message */
+        .loading-spinner { border: 4px solid #f3f3f3; border-top: 4px solid #82aaff; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; margin: 10px auto 0; display: none; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <h1 id="formTitle">Login</h1>
+        <form id="authForm">
+            <div class="input-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" required>
+            </div>
+            <div class="input-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" required>
+            </div>
+            <button type="submit" class="auth-button" id="submitButton">Login</button>
+            <div class="error-message" id="errorMessage"></div>
+            <div class="loading-spinner" id="loadingSpinner"></div>
+        </form>
+        <p class="toggle-form" id="toggleFormLink">Don't have an account? Register</p>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script>
+        // YOUR PROVIDED FIREBASE CONFIGURATION
+        const firebaseConfig = {
+            apiKey: "AIzaSyD3kO_ULF76RJkJf1yhvo5cdM4Hoqo4fHA",
+            authDomain: "abcoinseo-e2f66.firebaseapp.com",
+            databaseURL: "https://abcoinseo-e2f66-default-rtdb.firebaseio.com",
+            projectId: "abcoinseo-e2f66",
+            storageBucket: "abcoinseo-e2f66.firebasestorage.app",
+            messagingSenderId: "396837162872",
+            appId: "1:396837162872:web:c204ca5c36f5d2d87bc28d"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+
+        const authForm = document.getElementById('authForm');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const formTitle = document.getElementById('formTitle');
+        const submitButton = document.getElementById('submitButton');
+        const toggleFormLink = document.getElementById('toggleFormLink');
+        const errorMessageDiv = document.getElementById('errorMessage');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+
+        let isLoginMode = true;
+
+        function setLoading(isLoading) {
+            loadingSpinner.style.display = isLoading ? 'block' : 'none';
+            submitButton.disabled = isLoading;
+            submitButton.style.opacity = isLoading ? 0.7 : 1;
+        }
+
+        toggleFormLink.addEventListener('click', () => {
+            isLoginMode = !isLoginMode;
+            formTitle.textContent = isLoginMode ? 'Login' : 'Register';
+            submitButton.textContent = isLoginMode ? 'Login' : 'Register';
+            toggleFormLink.textContent = isLoginMode ? "Don't have an account? Register" : "Already have an account? Login";
+            errorMessageDiv.textContent = ''; // Clear previous errors
+            emailInput.value = ''; // Clear inputs
+            passwordInput.value = '';
+        });
+
+        authForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            errorMessageDiv.textContent = '';
+            setLoading(true);
+
+            if (isLoginMode) {
+                auth.signInWithEmailAndPassword(email, password)
+                    .then((userCredential) => {
+                        // Signed in
+                        window.location.href = 'index.html'; // Redirect to editor
+                    })
+                    .catch((error) => {
+                        errorMessageDiv.textContent = error.message;
+                    })
+                    .finally(() => {
+                        setLoading(false);
+                    });
+            } else { // Register mode
+                auth.createUserWithEmailAndPassword(email, password)
+                    .then((userCredential) => {
+                        // Signed in (and new user created)
+                        // You might want to save some initial user profile data to Realtime Database here
+                        // e.g., db.ref('users/' + userCredential.user.uid).set({ email: userCredential.user.email, createdAt: firebase.database.ServerValue.TIMESTAMP });
+                        window.location.href = 'index.html'; // Redirect to editor
+                    })
+                    .catch((error) => {
+                        errorMessageDiv.textContent = error.message;
+                    })
+                    .finally(() => {
+                        setLoading(false);
+                    });
+            }
+        });
+
+        // Check if user is already logged in when visiting this page
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                // If on auth page and logged in, redirect to editor
+                // This prevents showing login form if already authenticated
+                // Ensure this path check is correct for your deployment
+                if (window.location.pathname.endsWith('auth.html') || window.location.pathname.endsWith('auth.html/')) {
+                    window.location.href = 'index.html';
+                }
+            }
+        });
+    </script>
+</body>
+</html>
