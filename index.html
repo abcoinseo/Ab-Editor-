@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AB Studio Code Editor</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html { height: 100%; background: #1e1e2f; color: #fff; font-family: Arial, sans-serif; overflow: hidden; /* Prevent body scroll when modal is open */ }
+    header { display: flex; justify-content: space-between; padding: 10px 20px; background: #292944; align-items: center; }
+    header h1 { font-size: 1.2rem; }
+    header .material-icons { cursor: pointer; }
+    .editor-container { display: flex; height: calc(100% - 48px); /* Adjusted for header */ }
+    .sidebar { width: 220px; background: #2d2d3c; padding: 10px; overflow-y: auto; border-right: 1px solid #292944;}
+    .file { padding: 8px; margin: 5px 0; background: #3c3c52; border-radius: 4px; cursor: pointer; word-break: break-all; font-size: 0.9rem; }
+    .file.active { background: #4c4c66; font-weight: bold; }
+    .main-editor { flex: 1; display: flex; flex-direction: column; }
+    .tabs { display: flex; background: #1e1e2f; padding: 5px 5px 0 5px; border-bottom: 1px solid #292944;}
+    .tab { padding: 8px 15px; background: #2d2d3c; border-radius: 4px 4px 0 0; margin-right: 2px; cursor: default; font-size: 0.9rem;}
+    .tab.active { background: #1e1e2f; border: 1px solid #292944; border-bottom: 1px solid #1e1e2f; position: relative; top: 1px; }
+    .code-area { flex: 1; padding: 10px; background: #1e1e2f; color: #ccc; resize: none; border: none; width: 100%; font-family: monospace; outline: none; font-size: 1rem; line-height: 1.4;}
+    .actions { display: flex; padding: 8px 10px; background: #292944; justify-content: space-between; align-items: center; border-top: 1px solid #33334d;}
+    .actions .material-icons { cursor: pointer; margin: 0 8px; font-size: 20px; }
+    .actions .material-icons:hover { color: #aaa; }
+    .preview { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; z-index: 1000; align-items: center; justify-content: center;}
+    .preview-content { background: #fff; color: #000; width: 90%; height: 90%; box-shadow: 0 0 20px rgba(0,0,0,0.3); position: relative; }
+    .preview iframe { width: 100%; height: 100%; border: none; }
+    .preview .close-preview-btn { position:absolute; top:10px; right:10px; cursor:pointer; font-size:30px; color: #333; background: white; border-radius: 50%; padding: 2px;}
+
+    /* Publish Popup Styles */
+    .publish-popup {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.7);
+      display: none; /* Hidden by default */
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      padding: 20px;
+    }
+    .publish-popup-content {
+      background: #2d2d3c;
+      padding: 25px;
+      border-radius: 8px;
+      text-align: center;
+      color: #fff;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+      width: 90%;
+      max-width: 500px;
+    }
+    .publish-popup-content h3 {
+      margin-bottom: 15px;
+      font-size: 1.4rem;
+      color: #82aaff;
+    }
+    .publish-popup-content p {
+      margin-bottom: 10px;
+      font-size: 0.9rem;
+    }
+    .publish-popup-content input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 20px;
+      border: 1px solid #4c4c66;
+      background: #1e1e2f;
+      color: #ccc;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      text-align: center;
+    }
+    .publish-popup-actions button {
+      padding: 10px 20px;
+      margin: 5px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 0.9rem;
+    }
+    .publish-popup-actions button.copy-btn { /* Specific class for copy button */
+      background-color: #4CAF50;
+      color: white;
+    }
+    .publish-popup-actions button.close-btn { /* Specific class for close button */
+      background-color: #6c757d;
+      color: white;
+    }
+
+    @media (max-width: 768px) {
+      .editor-container { flex-direction: column; height: calc(100% - 48px); }
+      .sidebar { width: 100%; height: auto; max-height: 120px; display: flex; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; padding: 5px; }
+      .file { flex-shrink: 0; margin: 5px; font-size: 0.8rem; padding: 6px 10px; }
+      .main-editor { flex: 1; min-height: 0; }
+      .actions { padding: 5px; }
+      .actions .material-icons { margin: 0 5px; font-size: 18px;}
+      .publish-popup-content { width: 95%; padding: 20px;}
+      .publish-popup-actions button { width: calc(50% - 10px); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>AB Studio Code Editor</h1>
+    <span class="material-icons" onclick="addFile()" title="Add new file">note_add</span>
+  </header>
+  <div class="editor-container">
+    <div class="sidebar" id="fileList"></div>
+    <div class="main-editor">
+      <div class="tabs" id="tabsContainer"></div>
+      <textarea id="code" class="code-area" spellcheck="false" placeholder="Select or create a file to start coding..."></textarea>
+      <div class="actions">
+        <div>
+          <span class="material-icons" onclick="renameFile()" title="Rename current file">edit</span>
+          <span class="material-icons" onclick="deleteFile()" title="Delete current file">delete</span>
+        </div>
+        <div>
+          <span class="material-icons" onclick="saveToFirebase()" title="Save Project to Cloud">cloud_upload</span>
+          <span class="material-icons" onclick="publishFile()" title="Publish File for Sharing">publish</span>
+          <span class="material-icons" onclick="openPreview()" title="Preview HTML">preview</span>
+        </div>
+      </div>
+     VIEWER_BASE_URL   </div>
+  </div>
+
+  <div class="preview" id="previewContainer"> <!-- Changed ID for clarity -->
+    <div class="preview-content">
+      <iframe id="previewFrame"></iframe>
+      <span class="material-icons close-preview-btn" onclick="closePreview()">close</span>
+    </div>
+  </div>
+
+  <div class="publish-popup" id="publishPopup">
+    <div class="publish-popup-content">
+      <h3>File Published!</h3>
+      <p>Anyone with this link can view your page:</p>
+      <input type="text" id="shareableLink" readonly>
+      <div class="publish-popup-actions">
+        <button class="copy-btn" onclick="copyLinkToClipboard()">Copy Link</button>
+        <button class="close-btn" onclick="closePublishPopup()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBQMke0SOMIq0rod6vOm4jrFJ4cExfJPNE", // REPLACE WITH YOUR ACTUAL API KEY
+      authDomain: "ab-studio-4c309.firebaseapp.com",    // REPLACE WITH YOURS
+      databaseURL: "https://ab-studio-4c309-default-rtdb.firebaseio.com", // REPLACE WITH YOURS
+      projectId: "ab-studio-4c309",                    // REPLACE WITH YOURS
+      storageBucket: "ab-studio-4c309.firebasestorage.app", // REPLACE WITH YOURS
+      messagingSenderId: "290321392308",               // REPLACE WITH YOURS
+      appId: "1:290321392308:web:eed8f4bda17a51944eade1" // REPLACE WITH YOURS
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // --- IMPORTANT: CONFIGURE THIS ---
+    // This is the base URL where your viewer.html will be hosted.
+    // If using Firebase Hosting, it's typically: https://<YOUR_FIREBASE_PROJECT_ID>.web.app/viewer.html
+    // If you set up URL rewrites like /view/:id, it would be: https://<YOUR_FIREBASE_PROJECT_ID>.web.app/view/
+    const VIEWER_BASE_URL_PATH_ONLY = "viewer.html"; // e.g., "viewer.html" or "view/"
+    const VIEWER_BASE_URL = `https://${firebaseConfig.projectId}.web.app/${VIEWER_BASE_URL_PATH_ONLY}`;
+    // --- END IMPORTANT CONFIGURATION ---
+
+
+    let files = {};
+    try {
+      const storedFiles = localStorage.getItem('files');
+      if (storedFiles) {
+        files = JSON.parse(storedFiles);
+      }
+    } catch (e) {
+      console.error("Error parsing files from localStorage:", e);
+      files = {};
+    }
+
+    let currentFile = '';
+    const codeTextarea = document.getElementById('code');
+    const fileListContainer = document.getElementById('fileList');
+    const tabsContainer = document.getElementById('tabsContainer');
+    const previewContainer = document.getElementById('previewContainer'); // Updated ID
+    const previewFrame = document.getElementById('previewFrame');
+    const publishPopup = document.getElementById('publishPopup');
+    const shareableLinkInput = document.getElementById('shareableLink');
+
+
+    function saveLocal() {
+      localStorage.setItem('files', JSON.stringify(files));
+    }
+
+    function renderTabs(fileName) {
+      tabsContainer.innerHTML = '';
+      if (fileName) {
+        const tab = document.createElement('div');
+        tab.className = 'tab active';
+        tab.textContent = fileName;
+        tabsContainer.appendChild(tab);
+      }
+    }
+
+    function renderFiles() {
+      fileListContainer.innerHTML = '';
+      Object.keys(files).sort().forEach(name => {
+        const div = document.createElement('div');
+        div.className = 'file' + (name === currentFile ? ' active' : '');
+        div.textContent = name;
+        div.onclick = () => openFile(name);
+        fileListContainer.appendChild(div);
+      });
+    }
+
+    function addFile() {
+      const name = prompt('Enter new file name (e.g., index.html, style.css):');
+      if (name && name.trim() !== '') {
+        const trimmedName = name.trim();
+        if (files.hasOwnProperty(trimmedName)) {
+          alert('File with this name already exists.');
+          return;
+        }
+        files[trimmedName] = '';
+        saveLocal();
+        openFile(trimmedName);
+      } else if (name !== null) {
+        alert("File name cannot be empty.");
+      }
+    }
+
+    function openFile(name) {
+      if (files.hasOwnProperty(name)) {
+        currentFile = name;
+        codeTextarea.value = files[name];
+        renderFiles();
+        renderTabs(name);
+        codeTextarea.focus();
+        codeTextarea.placeholder = `Editing ${name}...`;
+      } else {
+        console.error("Attempted to open non-existent file:", name);
+      }
+    }
+
+    function renameFile() {
+      if (!currentFile) {
+        alert("No file selected to rename.");
+        return;
+      }
+      const oldName = currentFile;
+      const newName = prompt('Enter new name for "' + oldName + '":', oldName);
+
+      if (newName && newName.trim() !== '' && newName.trim() !== oldName) {
+        const trimmedNewName = newName.trim();
+        if (files.hasOwnProperty(trimmedNewName)) {
+          alert('A file with the name "' + trimmedNewName + '" already exists.');
+          return;
+        }
+        files[trimmedNewName] = files[oldName];
+        delete files[oldName];
+        saveLocal();
+        openFile(trimmedNewName);
+      } else if (newName !== null && newName.trim() === '') {
+         alert("File name cannot be empty.");
+      }
+    }
+
+    function deleteFile() {
+      if (!currentFile) {
+        alert("No file selected to delete.");
+        return;
+      }
+      if (confirm(`Are you sure you want to delete '${currentFile}'? This action cannot be undone from local storage.`)) {
+        delete files[currentFile];
+        saveLocal();
+
+        const fileKeys = Object.keys(files).sort();
+        const oldCurrentFile = currentFile;
+        currentFile = '';
+
+        if (fileKeys.length > 0) {
+          openFile(fileKeys[0]);
+        } else {
+          codeTextarea.value = '';
+          codeTextarea.placeholder = "No files. Create a new file to start.";
+          renderFiles();
+          renderTabs('');
+        }
+         alert(`File '${oldCurrentFile}' deleted locally.`);
+      }
+    }
+
+    codeTextarea.addEventListener('input', () => {
+      if (currentFile && files.hasOwnProperty(currentFile)) {
+        files[currentFile] = codeTextarea.value;
+        saveLocal();
+      }
+    });
+
+    function openPreview() {
+      if (!currentFile && codeTextarea.value.trim() === '') {
+          alert("Nothing to preview. Open a file or write some HTML code.");
+          return;
+      }
+      const code = codeTextarea.value;
+      previewFrame.srcdoc = code;
+      previewContainer.style.display = 'flex';
+    }
+
+    function closePreview() {
+      previewContainer.style.display = 'none';
+      previewFrame.srcdoc = '';
+    }
+
+    function saveToFirebase() { // This saves the *project file* to a user-specific or filename-specific path
+      if (currentFile && files.hasOwnProperty(currentFile)) {
+        // Example path: projects/myproject_html (sanitized)
+        // You might want a more complex path structure if you add user authentication
+        const firebaseSafeName = currentFile.replace(/[.#$[\]]/g, '_'); // Basic sanitization for Firebase keys
+        const projectPath = 'projects/' + firebaseSafeName;
+        
+        db.ref(projectPath).set({
+            name: currentFile,
+            content: files[currentFile],
+            lastSaved: firebase.database.ServerValue.TIMESTAMP
+        }).then(() => {
+          alert(`File '${currentFile}' (project version) saved to Firebase path: ${projectPath}`);
+        }).catch((error) => {
+          console.error("Error saving project file to Firebase:", error);
+          alert('Error saving project file to Firebase: ' + error.message);
+        });
+      } else {
+        alert("No active file to save to Firebase as a project.");
+      }
+    }
+
+    function publishFile() {
+      if (!currentFile || !files.hasOwnProperty(currentFile)) {
+        alert("Please select a file to publish.");
+        return;
+      }
+
+      const contentToPublish = files[currentFile];
+      if (contentToPublish.trim() === "") {
+        alert("Cannot publish an empty file.");
+        return;
+      }
+
+      // Consider adding a loading indicator here
+      const publishedPagesRef = db.ref('publishedPages');
+      const newPageRef = publishedPagesRef.push(); // Generates a unique ID
+
+      newPageRef.set({
+        htmlContent: contentToPublish,
+        fileName: currentFile, // Original file name for reference
+        publishedAt: firebase.database.ServerValue.TIMESTAMP
+      })
+      .then(() => {
+        const pageId = newPageRef.key;
+        let link;
+        if (VIEWER_BASE_URL_PATH_ONLY.endsWith('/')) { // For paths like /view/
+            link = `${VIEWER_BASE_URL}${pageId}`;
+        } else { // For paths like /viewer.html?id=
+            link = `${VIEWER_BASE_URL}?id=${pageId}`;
+        }
+
+        shareableLinkInput.value = link;
+        publishPopup.style.display = 'flex';
+        // alert(`File '${currentFile}' published successfully!`); // Popup is enough
+      })
+      .catch(error => {
+        console.error("Error publishing file:", error);
+        alert("Error publishing file: " + error.message);
+      });
+    }
+
+    function closePublishPopup() {
+      publishPopup.style.display = 'none';
+    }
+
+    function copyLinkToClipboard() {
+      shareableLinkInput.select();
+      shareableLinkInput.setSelectionRange(0, 99999); // For mobile devices
+
+      try {
+        // Modern way: Clipboard API (requires HTTPS or localhost)
+        navigator.clipboard.writeText(shareableLinkInput.value)
+          .then(() => {
+            alert("Link copied to clipboard!");
+          })
+          .catch(err => {
+            console.warn('Async clipboard write failed, trying execCommand fallback: ', err);
+            // Fallback for browsers that don't support navigator.clipboard or if it fails (e.g. HTTP)
+            legacyCopy();
+          });
+      } catch (err) {
+        console.warn('navigator.clipboard not available, trying execCommand fallback: ', err);
+        legacyCopy();
+      }
+    }
+
+    function legacyCopy() {
+        try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+                alert("Link copied to clipboard (fallback method)!");
+            } else {
+                alert("Failed to copy link. Please copy it manually.");
+            }
+        } catch (err) {
+            alert("Failed to copy link. Please copy it manually.");
+            console.error('Fallback copy failed: ', err);
+        }
+    }
+    
+    function initializeEditor() {
+      renderFiles();
+      const fileKeys = Object.keys(files).sort();
+      if (fileKeys.length > 0) {
+        openFile(fileKeys[0]);
+      } else {
+        renderTabs('');
+        codeTextarea.placeholder = "No files. Create or load a file to start.";
+      }
+    }
+
+    // Initial load
+    initializeEditor();
+
+  </script>
+</body>
+</html>
