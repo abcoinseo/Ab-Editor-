@@ -3,17 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AB Studio Code Editor</title>
+  <title>AB Studio - Project Editor</title>
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body, html { height: 100%; background: #1e1e2f; color: #fff; font-family: Arial, sans-serif; }
+    body, html { height: 100%; background: #1e1e2f; color: #fff; font-family: Arial, sans-serif; overflow: hidden; }
     header { display: flex; justify-content: space-between; padding: 10px 20px; background: #292944; align-items: center; }
-    header h1 { font-size: 1.2rem; }
-    header .material-icons { cursor: pointer; }
-    .editor-container { display: flex; height: calc(100% - 50px); }
+    header h1 { font-size: 1.1rem; }
+    header .project-info { font-size: 0.8rem; color: #aaa; }
+    header .header-actions .material-icons { cursor: pointer; margin-left: 15px; }
+    .editor-container { display: flex; height: calc(100% - 48px); } /* Adjusted for header */
     .sidebar { width: 220px; background: #2d2d3c; padding: 10px; overflow-y: auto; border-right: 1px solid #292944;}
-    .file { padding: 8px; margin: 5px 0; background: #3c3c52; border-radius: 4px; cursor: pointer; word-break: break-all; }
+    .file { padding: 8px; margin: 5px 0; background: #3c3c52; border-radius: 4px; cursor: pointer; word-break: break-all; font-size: 0.9rem; }
     .file.active { background: #4c4c66; font-weight: bold; }
     .main-editor { flex: 1; display: flex; flex-direction: column; }
     .tabs { display: flex; background: #1e1e2f; padding: 5px 5px 0 5px; border-bottom: 1px solid #292944;}
@@ -23,197 +24,420 @@
     .actions { display: flex; padding: 8px 10px; background: #292944; justify-content: space-between; align-items: center; border-top: 1px solid #33334d;}
     .actions .material-icons { cursor: pointer; margin: 0 8px; font-size: 20px; }
     .actions .material-icons:hover { color: #aaa; }
-    .preview { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; z-index: 1000; align-items: center; justify-content: center;}
-    .preview-content { background: #fff; color: #000; width: 90%; height: 90%; box-shadow: 0 0 20px rgba(0,0,0,0.3); position: relative; }
-    .preview iframe { width: 100%; height: 100%; border: none; }
-    .preview .close-preview-btn { position:absolute; top:10px; right:10px; cursor:pointer; font-size:30px; color: #333; background: white; border-radius: 50%; padding: 2px;}
     
-    /* Modal Styles */
+    /* Modal Styles (Generic) */
     .modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.7);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 2000;
-      opacity: 0;
-      visibility: hidden;
-      transition: opacity 0.3s ease, visibility 0.3s ease;
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center;
+      z-index: 2000; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease;
     }
-    .modal-overlay.visible {
-      opacity: 1;
-      visibility: visible;
-    }
+    .modal-overlay.visible { opacity: 1; visibility: visible; }
     .modal-content {
-      background: #2d2d3c;
-      color: #fff;
-      padding: 25px 30px;
-      border-radius: 8px;
-      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
-      width: 90%;
-      max-width: 550px;
-      text-align: center;
-      transform: scale(0.95);
-      transition: transform 0.3s ease;
+      background: #2d2d3c; color: #fff; padding: 25px 30px; border-radius: 8px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4); width: 90%; max-width: 500px; text-align: center;
+      transform: scale(0.95); transition: transform 0.3s ease;
     }
-    .modal-overlay.visible .modal-content {
-        transform: scale(1);
-    }
-    .modal-content h2 {
-      margin-top: 0;
-      margin-bottom: 15px;
-      color: #82aaff;
-      font-size: 1.6rem;
-    }
-    .modal-content p {
-      margin-bottom: 12px;
-      font-size: 0.95rem;
-      color: #ccc;
-    }
-    #hostedLinkInput {
-      width: 100%;
-      padding: 12px;
-      margin-bottom: 25px;
-      border: 1px solid #4c4c66;
-      border-radius: 4px;
-      background: #1e1e2f;
-      color: #e0e0e0;
-      font-size: 0.9rem;
-      text-align: left;
-      font-family: monospace;
-    }
-    .modal-actions {
-      display: flex;
-      justify-content: center;
-      gap: 15px;
-    }
-    .modal-button {
-      padding: 10px 25px;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 0.95rem;
-      font-weight: 500;
-      transition: background-color 0.2s, transform 0.1s;
-    }
-    .modal-button:active {
-        transform: scale(0.98);
-    }
-    .modal-button.copy-button {
-      background-color: #4CAF50;
-      color: white;
-    }
-    .modal-button.copy-button:hover {
-      background-color: #45a049;
-    }
-    .modal-button.close-button {
-      background-color: #6c757d;
-      color: white;
-    }
-    .modal-button.close-button:hover {
-      background-color: #5a6268;
-    }
+    .modal-overlay.visible .modal-content { transform: scale(1); }
+    .modal-content h2 { margin-top: 0; margin-bottom: 15px; color: #82aaff; font-size: 1.6rem; }
+    .modal-content p { margin-bottom: 12px; font-size: 0.95rem; color: #ccc; }
+    .modal-input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #4c4c66; border-radius: 4px; background: #1e1e2f; color: #e0e0e0; font-size: 0.9rem;}
+    .modal-actions { display: flex; justify-content: center; gap: 15px; margin-top: 20px;}
+    .modal-button { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 0.9rem; font-weight: 500; transition: background-color 0.2s, transform 0.1s;}
+    .modal-button:active { transform: scale(0.98); }
+    .modal-button.primary { background-color: #4CAF50; color: white; }
+    .modal-button.primary:hover { background-color: #45a049; }
+    .modal-button.secondary { background-color: #6c757d; color: white; }
+    .modal-button.secondary:hover { background-color: #5a6268; }
 
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-    .actions .material-icons.spinning {
-        animation: spin 1s linear infinite;
-    }
+    #projectSetupModal .modal-actions { flex-direction: column; gap: 10px; }
+    #projectSetupModal .modal-actions button, #projectSetupModal .modal-actions div { width: 100%; }
+    #projectSetupModal .load-project-group { display: flex; gap: 10px; }
+    #projectSetupModal .load-project-group input { flex-grow: 1; }
+
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .actions .material-icons.spinning, header .material-icons.spinning { animation: spin 1s linear infinite; }
 
     @media (max-width: 768px) {
-      .editor-container { flex-direction: column; height: calc(100% - 48px); }
-      .sidebar { width: 100%; height: auto; max-height: 150px; display: flex; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; padding: 5px; }
+      .editor-container { flex-direction: column; }
+      .sidebar { width: 100%; height: auto; max-height: 120px; display: flex; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; padding: 5px; }
       .file { flex-shrink: 0; margin: 5px; }
       .main-editor { flex: 1; min-height: 0; }
-      .actions { padding: 5px; }
       .actions .material-icons { margin: 0 5px; font-size: 18px;}
+      header h1 { font-size: 1rem; }
+      header .project-info { display: none; } /* Can be too cramped */
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>AB Studio Code Editor</h1>
-    <span class="material-icons" onclick="addFile()" title="Add new file">note_add</span>
+    <div class="header-left">
+        <h1>AB Studio</h1>
+        <span id="projectInfo" class="project-info"></span>
+    </div>
+    <div class="header-actions">
+        <span class="material-icons" onclick="showProjectSwitcherModal()" title="Switch/New Project">folder_open</span>
+        <span class="material-icons" id="saveProjectIcon" onclick="saveCurrentProjectToFirebase()" title="Save Project to Cloud">save</span>
+    </div>
   </header>
-  <div class="editor-container">
+
+  <div class="editor-container" id="editorContainer" style="display:none;">
     <div class="sidebar" id="fileList"></div>
     <div class="main-editor">
       <div class="tabs" id="tabsContainer"></div>
-      <textarea id="code" class="code-area" spellcheck="false" placeholder="Select or create a file to start coding..."></textarea>
+      <textarea id="code" class="code-area" spellcheck="false" placeholder="Select or create a file..."></textarea>
       <div class="actions">
         <div>
-          <span class="material-icons" onclick="renameFile()" title="Rename current file">edit</span>
-          <span class="material-icons" onclick="deleteFile()" title="Delete current file">delete</span>
+          <span class="material-icons" onclick="addFileToProject()" title="Add new file to project">note_add</span>
+          <span class="material-icons" onclick="renameCurrentFile()" title="Rename current file">edit</span>
+          <span class="material-icons" onclick="deleteCurrentFile()" title="Delete current file">delete</span>
         </div>
         <div>
-          <span class="material-icons" onclick="saveToFirebase()" title="Save to Cloud">cloud_upload</span>
-          <span class="material-icons" onclick="hostProject()" title="Host Project Publicly">public</span>
-          <span class="material-icons" onclick="openPreview()" title="Preview HTML">preview</span>
+          <span class="material-icons" id="hostProjectIcon" onclick="hostCurrentProject()" title="Host Project Publicly">public</span>
+          <span class="material-icons" onclick="openPreview()" title="Preview Current HTML File">preview</span>
         </div>
       </div>
-    </div>
-  </div>
-  <div class="preview" id="preview">
-    <div class="preview-content">
-      <iframe id="previewFrame"></iframe>
-      <span class="material-icons close-preview-btn" onclick="closePreview()">close</span>
     </div>
   </div>
 
-  <div class="modal-overlay" id="hostingPopupOverlay">
+  <!-- Project Setup Modal -->
+  <div class="modal-overlay" id="projectSetupModal">
     <div class="modal-content">
-      <h2>Project Hosted!</h2>
-      <p>Your project is now publicly accessible at:</p>
-      <input type="text" id="hostedLinkInput" readonly>
+      <h2 id="projectSetupTitle">Welcome to AB Studio</h2>
+      <p id="projectSetupMessage">Create a new project or load an existing one by its ID.</p>
+      <input type="text" id="newProjectNameInput" class="modal-input" placeholder="New Project Name (e.g., My Website)">
       <div class="modal-actions">
-        <button onclick="copyHostedLink()" class="modal-button copy-button">Copy Link</button>
-        <button onclick="closeHostingPopup()" class="modal-button close-button">Close</button>
+        <button class="modal-button primary" onclick="handleCreateNewProject()">Create New Project</button>
+        <p style="margin: 10px 0; font-size: 0.9em;">OR</p>
+        <div class="load-project-group">
+            <input type="text" id="loadProjectIdInput" class="modal-input" placeholder="Enter Project ID to Load" style="margin-bottom:0;">
+            <button class="modal-button secondary" onclick="handleLoadProjectById()">Load</button>
+        </div>
       </div>
     </div>
   </div>
+
+  <!-- Hosting Link Modal -->
+  <div class="modal-overlay" id="hostingPopupOverlay">
+    <div class="modal-content">
+      <h2>Project Hosted!</h2>
+      <p>Your project is now publicly accessible. Share this link:</p>
+      <input type="text" id="hostedLinkInput" class="modal-input" readonly>
+      <div class="modal-actions">
+        <button onclick="copyHostedLink()" class="modal-button primary">Copy Link</button>
+        <button onclick="closeHostingPopup()" class="modal-button secondary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preview Modal (for single file preview) -->
+   <div class="modal-overlay" id="previewOverlay" style="background: rgba(0,0,0,0.85);">
+    <div class="modal-content" style="width:90%; height:90%; max-width:none; max-height:none; padding:10px; background: #111;">
+        <div style="display:flex; justify-content:flex-end; margin-bottom:5px;">
+             <span class="material-icons" onclick="closePreview()" style="cursor:pointer; font-size:24px; color: #fff;">close</span>
+        </div>
+      <iframe id="previewFrame" style="width:100%; height:calc(100% - 30px); border:1px solid #333; background: #fff;"></iframe>
+    </div>
+  </div>
+
 
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
   <script>
-    // PASTE YOUR FIREBASE CONFIG OBJECT HERE
     const firebaseConfig = {
-  apiKey: "AIzaSyD3kO_ULF76RJkJf1yhvo5cdM4Hoqo4fHA",
-  authDomain: "abcoinseo-e2f66.firebaseapp.com",
-  databaseURL: "https://abcoinseo-e2f66-default-rtdb.firebaseio.com",
-  projectId: "abcoinseo-e2f66",
-  storageBucket: "abcoinseo-e2f66.firebasestorage.app",
-  messagingSenderId: "396837162872",
-  appId: "1:396837162872:web:c204ca5c36f5d2d87bc28d"
-};
+      apiKey: "AIzaSyD3kO_ULF76RJkJf1yhvo5cdM4Hoqo4fHA",
+      authDomain: "abcoinseo-e2f66.firebaseapp.com",
+      databaseURL: "https://abcoinseo-e2f66-default-rtdb.firebaseio.com",
+      projectId: "abcoinseo-e2f66",
+      storageBucket: "abcoinseo-e2f66.firebasestorage.app",
+      messagingSenderId: "396837162872",
+      appId: "1:396837162872:web:c204ca5c36f5d2d87bc28d"
+    };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    let files = {};
-    try {
-      const storedFiles = localStorage.getItem('files');
-      if (storedFiles) {
-        files = JSON.parse(storedFiles);
-      }
-    } catch (e) {
-      console.error("Error parsing files from localStorage:", e);
-      files = {};
-    }
-
-    let currentFile = '';
-    const codeTextarea = document.getElementById('code');
+    // DOM Elements
+    const editorContainer = document.getElementById('editorContainer');
+    const projectSetupModal = document.getElementById('projectSetupModal');
+    const projectInfoDisplay = document.getElementById('projectInfo');
     const fileListContainer = document.getElementById('fileList');
     const tabsContainer = document.getElementById('tabsContainer');
+    const codeTextarea = document.getElementById('code');
     const hostingPopupOverlay = document.getElementById('hostingPopupOverlay');
     const hostedLinkInput = document.getElementById('hostedLinkInput');
+    const previewOverlay = document.getElementById('previewOverlay');
+    const previewFrame = document.getElementById('previewFrame');
+    const saveProjectIcon = document.getElementById('saveProjectIcon');
+    const hostProjectIcon = document.getElementById('hostProjectIcon');
 
-    function saveLocal() {
-      localStorage.setItem('files', JSON.stringify(files));
+
+    // State
+    let currentProjectId = null;
+    let currentProjectData = null; // { projectName: "...", files: { "filename": "content", ... } }
+    let currentOpenFileName = null;
+    let unsavedChanges = false;
+
+    // --- Utility Functions ---
+    function generateRandomId(length = 12) {
+        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let result = '';
+        for (let i = 0; i < length; i++) {
+            result += characters.charAt(Math.floor(Math.random() * characters.length));
+        }
+        return result;
+    }
+
+    function showModal(modalElement) { modalElement.classList.add('visible'); }
+    function closeModal(modalElement) { modalElement.classList.remove('visible'); }
+    
+    function setIconSpinning(iconElement, isSpinning) {
+        if (isSpinning) iconElement.classList.add('spinning');
+        else iconElement.classList.remove('spinning');
+    }
+
+    // --- Project Management ---
+    function initializeEditor() {
+        currentProjectId = localStorage.getItem('abStudio_activeProjectId');
+        if (currentProjectId) {
+            loadProjectFromFirebase(currentProjectId);
+        } else {
+            showModal(projectSetupModal);
+            editorContainer.style.display = 'none';
+        }
+        window.addEventListener('beforeunload', (event) => {
+            if (unsavedChanges) {
+                event.preventDefault();
+                event.returnValue = ''; // Required for Chrome
+            }
+        });
+    }
+
+    function showProjectSwitcherModal() {
+        document.getElementById('projectSetupTitle').textContent = "Switch Project";
+        document.getElementById('projectSetupMessage').textContent = "Create a new project or load another by its ID.";
+        document.getElementById('newProjectNameInput').value = '';
+        document.getElementById('loadProjectIdInput').value = '';
+        showModal(projectSetupModal);
+    }
+    
+    async function handleCreateNewProject() {
+        const projectName = document.getElementById('newProjectNameInput').value.trim();
+        if (!projectName) {
+            alert("Please enter a project name.");
+            return;
+        }
+        const newId = generateRandomId();
+        currentProjectId = newId;
+        currentProjectData = {
+            projectId: newId,
+            projectName: projectName,
+            files: {
+                "index.html": `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <title>${projectName}</title>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <h1>Welcome to ${projectName}!</h1>\n  <p>This is your index.html file.</p>\n  <script src="script.js"><\/script>\n</body>\n</html>`,
+                "style.css": `body {\n  font-family: sans-serif;\n  margin: 20px;\n  background-color: #f0f0f0;\n}\nh1 {\n  color: #333;\n}`,
+                "script.js": `console.log("Hello from ${projectName}'s script.js!");\n\n// Add your JavaScript here`
+            },
+            mainFile: "index.html" // Default main file for hosting
+        };
+        
+        localStorage.setItem('abStudio_activeProjectId', currentProjectId);
+        try {
+            await saveCurrentProjectToFirebase(false); // Save without alert
+            closeModal(projectSetupModal);
+            editorContainer.style.display = 'flex';
+            updateProjectUI();
+            openFileInProject(currentProjectData.mainFile || "index.html");
+            unsavedChanges = false; 
+        } catch (error) {
+            alert("Error creating new project: " + error.message);
+            currentProjectId = null; // Rollback
+            localStorage.removeItem('abStudio_activeProjectId');
+        }
+    }
+
+    async function handleLoadProjectById() {
+        const projectIdToLoad = document.getElementById('loadProjectIdInput').value.trim();
+        if (!projectIdToLoad) {
+            alert("Please enter a Project ID to load.");
+            return;
+        }
+        if (unsavedChanges) {
+            if (!confirm("You have unsaved changes in the current project. Are you sure you want to load another project? Your changes will be lost if not saved.")) {
+                return;
+            }
+        }
+        await loadProjectFromFirebase(projectIdToLoad);
+    }
+
+    async function loadProjectFromFirebase(projectId) {
+        if (!projectId) return;
+        setIconSpinning(saveProjectIcon, true); // Use save icon for loading feedback
+        try {
+            const snapshot = await db.ref(`editor_projects/${projectId}`).once('value');
+            if (snapshot.exists()) {
+                currentProjectData = snapshot.val();
+                currentProjectId = projectId; // Ensure it's set from the loaded data's context if possible or param
+                currentProjectData.projectId = projectId; // ensure projectId is part of the data
+
+                localStorage.setItem('abStudio_activeProjectId', currentProjectId);
+                closeModal(projectSetupModal);
+                editorContainer.style.display = 'flex';
+                updateProjectUI();
+                const fileToOpen = currentProjectData.mainFile || Object.keys(currentProjectData.files)[0] || null;
+                if (fileToOpen) {
+                    openFileInProject(fileToOpen);
+                } else {
+                     // No files in project, clear editor
+                    codeTextarea.value = '';
+                    currentOpenFileName = null;
+                    renderTabs(null);
+                }
+                unsavedChanges = false;
+            } else {
+                alert(`Project with ID '${projectId}' not found.`);
+                localStorage.removeItem('abStudio_activeProjectId'); // Clear if not found
+                currentProjectId = null;
+                currentProjectData = null;
+                showModal(projectSetupModal); // Show setup again
+                editorContainer.style.display = 'none';
+            }
+        } catch (error) {
+            alert("Error loading project: " + error.message);
+            console.error("Load project error:", error);
+        } finally {
+            setIconSpinning(saveProjectIcon, false);
+        }
+    }
+
+    async function saveCurrentProjectToFirebase(showAlert = true) {
+        if (!currentProjectId || !currentProjectData) {
+            if(showAlert) alert("No active project to save.");
+            return Promise.reject("No active project");
+        }
+        setIconSpinning(saveProjectIcon, true);
+        currentProjectData.lastModified = firebase.database.ServerValue.TIMESTAMP;
+        try {
+            await db.ref(`editor_projects/${currentProjectId}`).set(currentProjectData);
+            if(showAlert) alert(`Project '${currentProjectData.projectName}' saved to Cloud!`);
+            unsavedChanges = false;
+            document.title = `AB Studio - ${currentProjectData.projectName}`;
+            return Promise.resolve();
+        } catch (error) {
+            if(showAlert) alert("Error saving project: " + error.message);
+            console.error("Save project error:", error);
+            return Promise.reject(error);
+        } finally {
+            setIconSpinning(saveProjectIcon, false);
+        }
+    }
+    
+    function updateProjectUI() {
+        if (currentProjectData) {
+            projectInfoDisplay.textContent = `Project: ${currentProjectData.projectName} (ID: ${currentProjectId})`;
+            document.title = `AB Studio - ${currentProjectData.projectName}`;
+            renderProjectFiles();
+        } else {
+            projectInfoDisplay.textContent = "No Project Loaded";
+            document.title = "AB Studio";
+            fileListContainer.innerHTML = '<p style="padding:10px; color:#777;">No project loaded.</p>';
+        }
+    }
+
+    // --- File Management within Project ---
+    function renderProjectFiles() {
+        fileListContainer.innerHTML = '';
+        if (currentProjectData && currentProjectData.files) {
+            Object.keys(currentProjectData.files).sort().forEach(name => {
+                const div = document.createElement('div');
+                div.className = 'file' + (name === currentOpenFileName ? ' active' : '');
+                div.textContent = name;
+                div.onclick = () => openFileInProject(name);
+                fileListContainer.appendChild(div);
+            });
+        } else {
+            fileListContainer.innerHTML = '<p style="padding:10px; color:#777;">No files in this project. Add one!</p>';
+        }
+    }
+
+    function addFileToProject() {
+        if (!currentProjectData) { alert("No project loaded."); return; }
+        const name = prompt('New file name (e.g., contact.html, extra.css):');
+        if (name && name.trim() !== '') {
+            const trimmedName = name.trim();
+            if (currentProjectData.files.hasOwnProperty(trimmedName)) {
+                alert('File with this name already exists in the project.');
+                return;
+            }
+            currentProjectData.files[trimmedName] = ''; // Default empty content
+            markUnsaved();
+            openFileInProject(trimmedName); // This will also re-render files
+        } else if (name !== null) {
+            alert("File name cannot be empty.");
+        }
+    }
+
+    function openFileInProject(fileName) {
+        if (currentProjectData && currentProjectData.files.hasOwnProperty(fileName)) {
+            currentOpenFileName = fileName;
+            codeTextarea.value = currentProjectData.files[fileName];
+            renderProjectFiles(); // To update active state
+            renderTabs(fileName);
+            codeTextarea.focus();
+        } else {
+            console.warn("Attempted to open non-existent file in project:", fileName);
+            codeTextarea.value = '';
+            currentOpenFileName = null;
+            renderTabs(null);
+            renderProjectFiles();
+        }
+    }
+
+    function renameCurrentFile() {
+        if (!currentOpenFileName || !currentProjectData) { alert("No file selected."); return; }
+        const oldName = currentOpenFileName;
+        const newName = prompt('Rename file to:', oldName);
+        if (newName && newName.trim() !== '' && newName.trim() !== oldName) {
+            const trimmedNewName = newName.trim();
+            if (currentProjectData.files.hasOwnProperty(trimmedNewName)) {
+                alert('A file with that name already exists in this project.');
+                return;
+            }
+            currentProjectData.files[trimmedNewName] = currentProjectData.files[oldName];
+            delete currentProjectData.files[oldName];
+            markUnsaved();
+            openFileInProject(trimmedNewName);
+        } else if (newName !== null && newName.trim() === '') {
+             alert("File name cannot be empty.");
+        }
+    }
+
+    function deleteCurrentFile() {
+        if (!currentOpenFileName || !currentProjectData) { alert("No file selected."); return; }
+        if (confirm(`Are you sure you want to delete '${currentOpenFileName}' from this project?`)) {
+            delete currentProjectData.files[currentOpenFileName];
+            markUnsaved();
+            currentOpenFileName = null;
+            codeTextarea.value = '';
+            renderTabs(null);
+            renderProjectFiles(); // Re-render to remove it
+            // Optionally, open another file if one exists
+            const remainingFiles = Object.keys(currentProjectData.files);
+            if (remainingFiles.length > 0) {
+                openFileInProject(remainingFiles.sort()[0]);
+            }
+        }
+    }
+    
+    codeTextarea.addEventListener('input', () => {
+        if (currentOpenFileName && currentProjectData && currentProjectData.files.hasOwnProperty(currentOpenFileName)) {
+            currentProjectData.files[currentOpenFileName] = codeTextarea.value;
+            markUnsaved();
+        }
+    });
+
+    function markUnsaved() {
+        if (!unsavedChanges) {
+            unsavedChanges = true;
+            document.title = `* ${currentProjectData.projectName} - AB Studio`; // Indicate unsaved
+        }
     }
 
     function renderTabs(fileName) {
@@ -226,144 +450,62 @@
       }
     }
 
-    function renderFiles() {
-      fileListContainer.innerHTML = '';
-      Object.keys(files).sort().forEach(name => {
-        const div = document.createElement('div');
-        div.className = 'file' + (name === currentFile ? ' active' : '');
-        div.textContent = name;
-        div.onclick = () => openFile(name);
-        fileListContainer.appendChild(div);
-      });
-    }
-
-    function addFile() {
-      const name = prompt('Enter new file name (e.g., index.html):');
-      if (name && name.trim() !== '') {
-        const trimmedName = name.trim();
-        if (files.hasOwnProperty(trimmedName)) {
-          alert('File with this name already exists.');
-          return;
-        }
-        files[trimmedName] = `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <title>${trimmedName}</title>\n  <style>\n    body { font-family: sans-serif; }\n  </style>\n</head>\n<body>\n  <h1>Hello from ${trimmedName}!</h1>\n  <script>\n    console.log('Script for ${trimmedName} loaded!');\n  <\/script>\n</body>\n</html>`;
-        saveLocal();
-        openFile(trimmedName);
-      } else if (name !== null) {
-        alert("File name cannot be empty.");
-      }
-    }
-
-    function openFile(name) {
-      if (files.hasOwnProperty(name)) {
-        currentFile = name;
-        codeTextarea.value = files[name];
-        renderFiles();
-        renderTabs(name);
-        codeTextarea.focus();
-      } else {
-        console.error("Attempted to open non-existent file:", name);
-      }
-    }
-
-    function renameFile() {
-      if (!currentFile) {
-        alert("No file selected to rename.");
-        return;
-      }
-      const oldName = currentFile;
-      const newName = prompt('Enter new name for "' + oldName + '":', oldName);
-
-      if (newName && newName.trim() !== '' && newName.trim() !== oldName) {
-        const trimmedNewName = newName.trim();
-        if (files.hasOwnProperty(trimmedNewName)) {
-          alert('A file with the name "' + trimmedNewName + '" already exists.');
-          return;
-        }
-        files[trimmedNewName] = files[oldName];
-        delete files[oldName];
-        saveLocal();
-        openFile(trimmedNewName);
-      } else if (newName !== null && newName.trim() === '') {
-         alert("File name cannot be empty.");
-      }
-    }
-
-    function deleteFile() {
-      if (!currentFile) {
-        alert("No file selected to delete.");
-        return;
-      }
-      if (confirm(`Are you sure you want to delete '${currentFile}'? This action cannot be undone.`)) {
-        delete files[currentFile];
-        saveLocal();
-        const fileKeys = Object.keys(files).sort();
-        currentFile = '';
-        if (fileKeys.length > 0) {
-          openFile(fileKeys[0]);
-        } else {
-          codeTextarea.value = '';
-          codeTextarea.placeholder = "No files. Create a new file to start.";
-          renderFiles();
-          renderTabs('');
-        }
-      }
-    }
-
-    codeTextarea.addEventListener('input', () => {
-      if (currentFile && files.hasOwnProperty(currentFile)) {
-        files[currentFile] = codeTextarea.value;
-        saveLocal();
-      }
-    });
-
+    // --- Single File Preview (local, not full project hosting) ---
     function openPreview() {
-      if (!currentFile && codeTextarea.value.trim() === '') {
-          alert("Nothing to preview. Open a file or write some HTML code.");
+      if (!currentOpenFileName || !currentProjectData) {
+          alert("No file open to preview.");
+          return;
+      }
+      // Only allow preview for HTML files
+      if (!currentOpenFileName.toLowerCase().endsWith('.html') && !currentOpenFileName.toLowerCase().endsWith('.htm')) {
+          alert("Preview is only available for HTML files. For full project testing, use the 'Host Project' feature.");
           return;
       }
       const code = codeTextarea.value;
-      const iframe = document.getElementById('previewFrame');
-      iframe.srcdoc = code;
-      document.getElementById('preview').style.display = 'flex';
+      previewFrame.srcdoc = code;
+      showModal(previewOverlay);
     }
 
     function closePreview() {
-      document.getElementById('preview').style.display = 'none';
-      document.getElementById('previewFrame').srcdoc = '';
+      closeModal(previewOverlay);
+      previewFrame.srcdoc = ''; // Clear content
     }
 
-    function saveToFirebase() {
-      if (currentFile && files.hasOwnProperty(currentFile)) {
-        // Sanitize filename for Firebase key (dots are not allowed in keys)
-        const firebaseSafeFileName = currentFile.replace(/\./g, '_');
-        const filePath = `projects/${firebaseSafeFileName}`;
-        db.ref(filePath).set({
-            filename: currentFile, // Store original filename
-            content: files[currentFile],
-            lastSaved: firebase.database.ServerValue.TIMESTAMP
-        })
-          .then(() => {
-            alert(`File '${currentFile}' saved to Firebase as '${firebaseSafeFileName}'!`);
-          })
-          .catch((error) => {
-            console.error("Error saving to Firebase:", error);
-            alert('Error saving to Firebase: ' + error.message);
-          });
-      } else {
-        alert("No active file to save to Firebase.");
-      }
-    }
+    // --- Project Hosting ---
+    async function hostCurrentProject() {
+        if (!currentProjectId || !currentProjectData) {
+            alert("No active project to host.");
+            return;
+        }
+        if (unsavedChanges) {
+            if (!confirm("You have unsaved changes. It's recommended to save to the cloud first. Host anyway with current changes?")) {
+                return;
+            }
+        }
 
-    // --- Hosting Functions ---
-    function showHostingPopup(url) {
-      hostedLinkInput.value = url;
-      hostingPopupOverlay.classList.add('visible');
-      hostedLinkInput.focus();
-      hostedLinkInput.select();
-    }
+        setIconSpinning(hostProjectIcon, true);
+        const dataToHost = {
+            files: currentProjectData.files,
+            mainFile: currentProjectData.mainFile || "index.html", // Ensure mainFile is set
+            originalProjectName: currentProjectData.projectName,
+            lastHosted: firebase.database.ServerValue.TIMESTAMP
+        };
 
-    function closeHostingPopup() {
-      hostingPopupOverlay.classList.remove('visible');
+        try {
+            await db.ref(`hosted_projects/${currentProjectId}`).set(dataToHost);
+            // Adjust the base URL if your app is in a subdirectory or uses a custom domain
+            const baseUrl = window.location.origin + window.location.pathname.replace(/index\.html$/, '');
+            const publicUrl = `${baseUrl}view.html#${currentProjectId}`;
+            
+            hostedLinkInput.value = publicUrl;
+            showModal(hostingPopupOverlay);
+            alert(`Project '${currentProjectData.projectName}' is now hosted!`);
+        } catch (error) {
+            alert("Error hosting project: " + error.message);
+            console.error("Host project error:", error);
+        } finally {
+            setIconSpinning(hostProjectIcon, false);
+        }
     }
 
     function copyHostedLink() {
@@ -371,87 +513,19 @@
       hostedLinkInput.setSelectionRange(0, 99999); 
       try {
         const successful = document.execCommand('copy');
-        const msg = successful ? 'Link copied to clipboard!' : 'Failed to copy link.';
-        // Alert or provide some visual feedback
-        const copyBtn = document.querySelector('.modal-button.copy-button');
+        const copyBtn = document.querySelector('#hostingPopupOverlay .modal-button.primary');
         const originalText = copyBtn.textContent;
         copyBtn.textContent = successful ? 'Copied!' : 'Failed!';
         setTimeout(() => { copyBtn.textContent = originalText; }, 2000);
-
       } catch (err) {
         alert('Failed to copy link. Please copy it manually.');
-        console.error('Fallback: Oops, unable to copy', err);
       }
     }
+    function closeHostingPopup() { closeModal(hostingPopupOverlay); }
 
-    function sanitizeForFirebaseKey(name) {
-        return name
-            .toLowerCase()
-            .replace(/\.(html|htm)$/, '') 
-            .replace(/[^a-z0-9-]/g, '_') // Allow letters, numbers, hyphens, replace others with underscore
-            .replace(/_{2,}/g, '_') // Replace multiple underscores with single
-            .replace(/^_|_$/g, ''); // Trim leading/trailing underscores
-    }
-
-    function hostProject() {
-      if (!currentFile || !files.hasOwnProperty(currentFile)) {
-        alert("Please open or create a file to host.");
-        return;
-      }
-
-      const originalFilename = currentFile;
-      const projectId = sanitizeForFirebaseKey(originalFilename);
-
-      if (!projectId) {
-        alert("Could not generate a valid project ID from the filename. Please rename the file using mostly letters and numbers.");
-        return;
-      }
-      
-      const projectContent = files[currentFile];
-      const firebaseHostedPath = `hosted_content/${projectId}`;
-
-      const hostButton = document.querySelector('.actions .material-icons[onclick="hostProject()"]');
-      const originalIconText = hostButton.textContent;
-      hostButton.textContent = 'sync';
-      hostButton.classList.add('spinning');
-
-      db.ref(firebaseHostedPath).set({
-        htmlContent: projectContent,
-        originalFilename: originalFilename,
-        projectId: projectId,
-        lastHosted: firebase.database.ServerValue.TIMESTAMP
-      })
-      .then(() => {
-        const publicUrl = `${window.location.origin}${window.location.pathname.replace('index.html', '')}view.html#${projectId}`;
-        // If deploying to a subdirectory, window.location.pathname might include it.
-        // For Vercel/Netlify root deployments, it would be:
-        // const publicUrl = `${window.location.origin}/view.html#${projectId}`;
-        
-        alert(`Project '${originalFilename}' is now hosted!`);
-        showHostingPopup(publicUrl);
-      })
-      .catch((error) => {
-        console.error("Error hosting project:", error);
-        alert(`Error hosting project: ${error.message}`);
-      })
-      .finally(() => {
-          hostButton.textContent = originalIconText;
-          hostButton.classList.remove('spinning');
-      });
-    }
-    
-    function initializeEditor() {
-      renderFiles();
-      const fileKeys = Object.keys(files).sort();
-      if (fileKeys.length > 0) {
-        openFile(fileKeys[0]);
-      } else {
-        renderTabs('');
-        codeTextarea.placeholder = "No files. Create a new file to start.";
-      }
-    }
-
+    // --- Initial Load ---
     initializeEditor();
+
   </script>
 </body>
 </html>
