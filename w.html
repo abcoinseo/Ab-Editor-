@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Chat Button</title>
+    <style>
+        /* General body styling (optional, for better presentation of just the button) */
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0; /* Light gray background to see button clearly */
+        }
+
+        /* WhatsApp Button Styles */
+        .whatsapp-chat-button {
+            display: inline-flex;         /* Allows icon and text to be side-by-side and align items */
+            align-items: center;          /* Vertically aligns the icon and text */
+            padding: 10px 20px;           /* Inner spacing */
+            background-color: #25D366;    /* WhatsApp green */
+            color: white;                 /* Text color */
+            text-decoration: none;        /* Removes underline from the link */
+            font-size: 16px;              /* Text size */
+            font-weight: bold;            /* Bold text */
+            border-radius: 25px;          /* Rounded corners */
+            transition: background-color 0.3s ease; /* Smooth transition for hover effect */
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2); /* Optional: subtle shadow for depth */
+        }
+
+        .whatsapp-chat-button:hover {
+            background-color: #1DAE54;    /* Darker green on hover */
+        }
+
+        .whatsapp-chat-button img {
+            height: 25px;                 /* Icon height */
+            width: auto;                  /* Maintain aspect ratio */
+            /* margin-right: 8px;         Alternative to   for spacing */
+        }
+    </style>
+</head>
+<body>
+
+    <a href="https://wa.me/15557846232" class="whatsapp-chat-button" target="_blank" rel="noopener noreferrer">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp Icon" />
+          <!-- Non-breaking space for spacing between icon and text -->
+        Chat on WhatsApp
+    </a>
+
+    <script>
+        // You can add JavaScript functionality here if needed in the future.
+        // For this static button, no JavaScript is required.
+        // console.log("WhatsApp button script loaded.");
+    </script>
+
+</body>
+</html>
