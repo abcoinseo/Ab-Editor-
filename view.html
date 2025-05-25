@@ -4,66 +4,38 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>View Project</title>
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #f0f0f0; }
-        iframe { width: 100%; height: 100%; border: none; background-color: #fff; }
-        .status-message {
-            display: flex; align-items: center; justify-content: center; height: 100%;
-            font-family: Arial, sans-serif; font-size: 1.2em; color: #555; padding: 20px; text-align: center;
-        }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #fff; }
+        .status-message { display: flex; align-items: center; justify-content: center; height: 100%; font-family: Arial, sans-serif; font-size: 1.5em; color: #555; padding: 20px; text-align: center; }
+        iframe#contentFrame { width: 100%; height: 100%; border: none; display: none; } /* Initially hidden */
     </style>
 </head>
 <body>
     <div id="statusDisplay" class="status-message">Loading project...</div>
-    <iframe id="contentFrame" style="display: none;" sandbox="allow-scripts allow-forms allow-popups allow-modals allow-same-origin"></iframe>
+    <iframe id="contentFrame" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-top-navigation-by-user-activation"></iframe>
 
     <script>
-        const firebaseConfig = {
-          apiKey: "AIzaSyD3kO_ULF76RJkJf1yhvo5cdM4Hoqo4fHA",
-          authDomain: "abcoinseo-e2f66.firebaseapp.com",
-          databaseURL: "https://abcoinseo-e2f66-default-rtdb.firebaseio.com",
-          projectId: "abcoinseo-e2f66",
-          storageBucket: "abcoinseo-e2f66.firebasestorage.app",
-          messagingSenderId: "396837162872",
-          appId: "1:396837162872:web:c204ca5c36f5d2d87bc28d"
+        const firebaseConfig = { // PASTE YOUR FIREBASE CONFIG AGAIN HERE
+            apiKey: "AIzaSyD3kO_ULF76RJkJf1yhvo5cdM4Hoqo4fHA",
+            authDomain: "abcoinseo-e2f66.firebaseapp.com",
+            databaseURL: "https://abcoinseo-e2f66-default-rtdb.firebaseio.com",
+            projectId: "abcoinseo-e2f66",
+            storageBucket: "abcoinseo-e2f66.firebasestorage.app",
+            messagingSenderId: "396837162872",
+            appId: "1:396837162872:web:c204ca5c36f5d2d87bc28d"
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
         const statusDisplay = document.getElementById('statusDisplay');
         const contentFrame = document.getElementById('contentFrame');
-        const blobUrlMap = new Map();
-
-        function desanitizeFirebaseKey(sanitizedKey) { // Must match editor's version
-            return sanitizedKey.replace(/_dot_/g, '.')
-                               .replace(/_hash_/g, '#')
-                               .replace(/_dollar_/g, '$')
-                               .replace(/_slash_/g, '/')
-                               .replace(/_lbrack_/g, '[')
-                               .replace(/_rbrack_/g, ']');
-        }
-
-        function getMimeType(filename) {
-            const extension = filename.split('.').pop().toLowerCase();
-            switch (extension) {
-                case 'html': case 'htm': return 'text/html';
-                case 'css': return 'text/css';
-                case 'js': return 'application/javascript';
-                case 'json': return 'application/json';
-                case 'png': return 'image/png';
-                case 'jpg': case 'jpeg': return 'image/jpeg';
-                case 'gif': return 'image/gif';
-                case 'svg': return 'image/svg+xml';
-                case 'txt': return 'text/plain';
-                default: return 'application/octet-stream';
-            }
-        }
 
         function showStatus(message, isError = false) {
             statusDisplay.textContent = message;
-            statusDisplay.style.color = isError ? '#d9534f' : '#333';
+            statusDisplay.style.color = isError ? '#d9534f' : '#555';
             statusDisplay.style.display = 'flex';
             contentFrame.style.display = 'none';
             document.title = isError ? "Error" : "Status";
@@ -72,100 +44,64 @@
         async function loadAndRenderProject(projectId) {
             document.title = `Loading: ${projectId}...`;
             try {
-                const snapshot = await db.ref(`hosted_projects/${projectId}`).once('value');
+                const snapshot = await db.ref(`hosted_content/${projectId}`).once('value');
                 if (!snapshot.exists()) {
-                    showStatus(`Error: Project '${projectId}' not found. Link may be invalid or project deleted.`, true);
+                    showStatus(`Error: Project '${projectId}' not found. It may have been deleted or the link is incorrect.`, true);
                     return;
                 }
 
-                const projectData = snapshot.val();
-                if (!projectData.files || Object.keys(projectData.files).length === 0) {
-                    showStatus(`Error: Project '${projectId}' is empty or corrupted.`, true);
+                const project = snapshot.val();
+                if (!project.files || !project.files["index.html"]) {
+                    showStatus(`Error: Project '${projectId}' is incomplete (missing index.html or files).`, true);
                     return;
                 }
-
-                document.title = projectData.originalProjectName ? `View: ${projectData.originalProjectName}` : `View Project: ${projectId}`;
-                blobUrlMap.clear();
-                const originalFiles = {};
-
-                for (const sanitizedFilename in projectData.files) {
-                    if (projectData.files.hasOwnProperty(sanitizedFilename)) {
-                        const originalFilename = desanitizeFirebaseKey(sanitizedFilename);
-                        const content = projectData.files[sanitizedFilename];
-                        const mimeType = getMimeType(originalFilename);
-                        const blob = new Blob([content], { type: mimeType });
-                        blobUrlMap.set(originalFilename, URL.createObjectURL(blob));
-                        originalFiles[originalFilename] = content;
-                    }
-                }
-
-                const mainFileName = projectData.mainFile || 'index.html';
-                if (!originalFiles[mainFileName] || !blobUrlMap.has(mainFileName)) {
-                     showStatus(`Error: Main file ('${mainFileName}') missing in project '${projectId}'.`, true);
-                    return;
-                }
-                let mainHtmlContent = originalFiles[mainFileName];
                 
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(mainHtmlContent, 'text/html');
-                
-                const baseBlob = new Blob([''], {type: 'text/html'}); // Dummy blob for base href
-                const baseBlobUrl = URL.createObjectURL(baseBlob);
-                const baseHrefPath = baseBlobUrl.substring(0, baseBlobUrl.lastIndexOf('/') + 1);
-                URL.revokeObjectURL(baseBlobUrl); // Clean up dummy blob URL immediately
+                document.title = project.metadata?.name ? `View: ${project.metadata.name}` : `View Project: ${projectId}`;
 
-                let baseTag = doc.querySelector('base');
-                if (!baseTag) {
-                    baseTag = doc.createElement('base');
-                    doc.head.insertBefore(baseTag, doc.head.firstChild);
-                }
-                baseTag.setAttribute('href', baseHrefPath);
+                let htmlContent = project.files["index.html"];
+                const cssFileContent = project.files["style.css"] || "";
+                const jsFileContent = project.files["script.js"] || "";
 
-                doc.querySelectorAll('[href]').forEach(el => {
-                    let path = el.getAttribute('href');
-                    if (path && !path.startsWith('http') && !path.startsWith('//') && !path.startsWith('data:') && !path.startsWith('mailto:') && !path.startsWith('#') && !path.startsWith('blob:')) {
-                        const cleanedPath = path.startsWith('./') ? path.substring(2) : path;
-                        if (blobUrlMap.has(cleanedPath)) {
-                            el.setAttribute('href', blobUrlMap.get(cleanedPath));
-                        } else {
-                             console.warn(`Unresolved href: ${path} (cleaned: ${cleanedPath})`);
-                        }
-                    }
-                });
-                doc.querySelectorAll('[src]').forEach(el => {
-                     let path = el.getAttribute('src');
-                    if (path && !path.startsWith('http') && !path.startsWith('//') && !path.startsWith('data:') && !path.startsWith('blob:')) {
-                        const cleanedPath = path.startsWith('./') ? path.substring(2) : path;
-                        if (blobUrlMap.has(cleanedPath)) {
-                            el.setAttribute('src', blobUrlMap.get(cleanedPath));
-                        } else {
-                             console.warn(`Unresolved src: ${path} (cleaned: ${cleanedPath})`);
-                        }
-                    }
-                });
-                
-                const finalHtml = doc.documentElement.outerHTML;
-                contentFrame.srcdoc = finalHtml;
+                // Strategy 1: Inject CSS and JS directly into the HTML string (Simpler for srcdoc)
+                // Replace <link rel="stylesheet" href="style.css"> with <style>...</style>
+                htmlContent = htmlContent.replace(
+                    /<link\s+.*?href=["']style\.css["'].*?>/i, 
+                    `<style>\n${cssFileContent}\n</style>`
+                );
+                // Replace <script src="script.js"></script> with <script>...</script>
+                // Be careful with "<\/script>" if it appears in user's JS. For srcdoc, it's less of an issue.
+                htmlContent = htmlContent.replace(
+                    /<script\s+.*?src=["']script\.js["'].*?><\/script>/i,
+                    `<script>\n${jsFileContent}\n<\/script>`
+                );
+                // Also handle deferred/async scripts if any are expected
+                htmlContent = htmlContent.replace(
+                    /<script\s+.*?src=["']script\.js["'].*?(defer|async).*?><\/script>/i,
+                    `<script defer>\n${jsFileContent}\n<\/script>` 
+                );
+
+
+                // Strategy 2 (More Complex, better for Blob URLs, but srcdoc is fine for this):
+                // Create Blob URLs for CSS/JS and modify HTML to point to them.
+                // This is harder to get right with srcdoc as Blob URLs are origin-bound.
+
+                contentFrame.srcdoc = htmlContent;
                 statusDisplay.style.display = 'none';
                 contentFrame.style.display = 'block';
 
             } catch (error) {
-                console.error("Error loading or rendering project:", error);
-                showStatus(`An critical error occurred: ${error.message}`, true);
+                console.error("Error loading project:", error);
+                showStatus(`An error occurred: ${error.message}`, true);
             }
         }
 
-        window.addEventListener('DOMContentLoaded', function() {
+        window.addEventListener('DOMContentLoaded', () => {
             const projectId = window.location.hash.substring(1);
-            if (!projectId) {
-                showStatus("Error: No project ID specified. Please check the URL.", true);
-                return;
+            if (projectId) {
+                loadAndRenderProject(projectId);
+            } else {
+                showStatus("Error: No project ID specified. Append #PROJECT_ID to the URL.", true);
             }
-            loadAndRenderProject(projectId);
-        });
-
-        window.addEventListener('unload', function() {
-            blobUrlMap.forEach(url => URL.revokeObjectURL(url));
         });
     </script>
 </body>
