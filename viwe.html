@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Project</title>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #f0f0f0; }
+        iframe { width: 100%; height: 100%; border: none; background-color: #fff; }
+        .status-message {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            font-family: Arial, sans-serif;
+            font-size: 1.5em;
+            color: #555;
+            padding: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="statusDisplay" class="status-message">Loading project...</div>
+    <iframe id="contentFrame" style="display: none;" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"></iframe>
+
+    <script>
+        // PASTE YOUR EXACT SAME FIREBASE CONFIGURATION OBJECT HERE
+        const firebaseConfig = {
+  apiKey: "AIzaSyD3kO_ULF76RJkJf1yhvo5cdM4Hoqo4fHA",
+  authDomain: "abcoinseo-e2f66.firebaseapp.com",
+  databaseURL: "https://abcoinseo-e2f66-default-rtdb.firebaseio.com",
+  projectId: "abcoinseo-e2f66",
+  storageBucket: "abcoinseo-e2f66.firebasestorage.app",
+  messagingSenderId: "396837162872",
+  appId: "1:396837162872:web:c204ca5c36f5d2d87bc28d"
+};
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        const statusDisplay = document.getElementById('statusDisplay');
+        const contentFrame = document.getElementById('contentFrame');
+
+        function showStatus(message, isError = false) {
+            statusDisplay.textContent = message;
+            statusDisplay.style.color = isError ? '#d9534f' : '#333'; // Darker text for better readability
+            statusDisplay.style.display = 'flex';
+            contentFrame.style.display = 'none';
+            document.title = isError ? "Error" : "Status";
+        }
+
+        window.addEventListener('DOMContentLoaded', function() {
+            const projectId = window.location.hash.substring(1);
+
+            if (!projectId) {
+                showStatus("Error: No project ID specified in the URL. Please check the link.", true);
+                return;
+            }
+
+            document.title = `Loading: ${projectId}...`; 
+
+            const projectRef = db.ref(`hosted_content/${projectId}`);
+            projectRef.once('value')
+                .then(snapshot => {
+                    if (snapshot.exists()) {
+                        const data = snapshot.val();
+                        if (data && typeof data.htmlContent === 'string') {
+                            // Security: Use srcdoc to render HTML. The sandbox attribute adds further restrictions.
+                            contentFrame.srcdoc = data.htmlContent; 
+                            statusDisplay.style.display = 'none';
+                            contentFrame.style.display = 'block';
+                            document.title = data.originalFilename ? `View: ${data.originalFilename}` : `View Project: ${projectId}`;
+                        } else {
+                            showStatus(`Error: Project data for '${projectId}' is incomplete or malformed. Contact the owner.`, true);
+                            document.title = `Error - Corrupt Project Data`;
+                        }
+                    } else {
+                        showStatus(`Error: Project '${projectId}' not found. It may have been deleted or the link is incorrect.`, true);
+                        document.title = `Error - Project Not Found`;
+                    }
+                })
+                .catch(error => {
+                    console.error("Error fetching project:", error);
+                    showStatus(`An error occurred while loading the project: ${error.message}. Please try again later.`, true);
+                    document.title = `Error - Loading Failed`;
+                });
+        });
+
+        // Optional: Handle iframe load/error events for more robust feedback
+        contentFrame.addEventListener('load', function() {
+            // console.log('iframe content has been parsed and loaded.');
+        });
+        contentFrame.addEventListener('error', function(e) {
+            console.error('iframe loading error:', e);
+            // This might not always catch errors within the srcdoc content itself,
+            // but good for structural issues.
+            showStatus('An error occurred while trying to render the project content.', true);
+        });
+    </script>
+</body>
+</html>
