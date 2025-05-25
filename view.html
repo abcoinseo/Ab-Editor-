@@ -4,22 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>View Project</title>
-    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #fff; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #f0f0f0; }
+        iframe { width: 100%; height: 100%; border: none; background-color: #fff; }
         .status-message { display: flex; align-items: center; justify-content: center; height: 100%; font-family: Arial, sans-serif; font-size: 1.5em; color: #555; padding: 20px; text-align: center; }
-        iframe#contentFrame { width: 100%; height: 100%; border: none; display: none; } /* Initially hidden */
     </style>
 </head>
 <body>
     <div id="statusDisplay" class="status-message">Loading project...</div>
-    <iframe id="contentFrame" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-top-navigation-by-user-activation"></iframe>
+    <iframe id="contentFrame" style="display: none;" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-top-navigation-by-user-activation"></iframe>
 
     <script>
-        const firebaseConfig = { // PASTE YOUR FIREBASE CONFIG AGAIN HERE
-            apiKey: "AIzaSyD3kO_ULF76RJkJf1yhvo5cdM4Hoqo4fHA",
+        // PASTE YOUR FIREBASE CONFIG OBJECT HERE (same as index.html and auth.html)
+        const firebaseConfig = {
+            apiKey: "AIzaSyD3kO_ULF76RJkJf1yhvo5cdM4Hoqo4fHA", // YOUR PROVIDED KEY
             authDomain: "abcoinseo-e2f66.firebaseapp.com",
             databaseURL: "https://abcoinseo-e2f66-default-rtdb.firebaseio.com",
             projectId: "abcoinseo-e2f66",
@@ -35,73 +35,79 @@
 
         function showStatus(message, isError = false) {
             statusDisplay.textContent = message;
-            statusDisplay.style.color = isError ? '#d9534f' : '#555';
+            statusDisplay.style.color = isError ? '#d9534f' : '#333';
             statusDisplay.style.display = 'flex';
             contentFrame.style.display = 'none';
             document.title = isError ? "Error" : "Status";
         }
 
-        async function loadAndRenderProject(projectId) {
-            document.title = `Loading: ${projectId}...`;
-            try {
-                const snapshot = await db.ref(`hosted_content/${projectId}`).once('value');
-                if (!snapshot.exists()) {
-                    showStatus(`Error: Project '${projectId}' not found. It may have been deleted or the link is incorrect.`, true);
-                    return;
-                }
+        window.addEventListener('DOMContentLoaded', function() {
+            const hostedProjectId = window.location.hash.substring(1);
 
-                const project = snapshot.val();
-                if (!project.files || !project.files["index.html"]) {
-                    showStatus(`Error: Project '${projectId}' is incomplete (missing index.html or files).`, true);
-                    return;
-                }
-                
-                document.title = project.metadata?.name ? `View: ${project.metadata.name}` : `View Project: ${projectId}`;
-
-                let htmlContent = project.files["index.html"];
-                const cssFileContent = project.files["style.css"] || "";
-                const jsFileContent = project.files["script.js"] || "";
-
-                // Strategy 1: Inject CSS and JS directly into the HTML string (Simpler for srcdoc)
-                // Replace <link rel="stylesheet" href="style.css"> with <style>...</style>
-                htmlContent = htmlContent.replace(
-                    /<link\s+.*?href=["']style\.css["'].*?>/i, 
-                    `<style>\n${cssFileContent}\n</style>`
-                );
-                // Replace <script src="script.js"></script> with <script>...</script>
-                // Be careful with "<\/script>" if it appears in user's JS. For srcdoc, it's less of an issue.
-                htmlContent = htmlContent.replace(
-                    /<script\s+.*?src=["']script\.js["'].*?><\/script>/i,
-                    `<script>\n${jsFileContent}\n<\/script>`
-                );
-                // Also handle deferred/async scripts if any are expected
-                htmlContent = htmlContent.replace(
-                    /<script\s+.*?src=["']script\.js["'].*?(defer|async).*?><\/script>/i,
-                    `<script defer>\n${jsFileContent}\n<\/script>` 
-                );
-
-
-                // Strategy 2 (More Complex, better for Blob URLs, but srcdoc is fine for this):
-                // Create Blob URLs for CSS/JS and modify HTML to point to them.
-                // This is harder to get right with srcdoc as Blob URLs are origin-bound.
-
-                contentFrame.srcdoc = htmlContent;
-                statusDisplay.style.display = 'none';
-                contentFrame.style.display = 'block';
-
-            } catch (error) {
-                console.error("Error loading project:", error);
-                showStatus(`An error occurred: ${error.message}`, true);
+            if (!hostedProjectId) {
+                showStatus("Error: No project ID specified in the URL.", true);
+                return;
             }
-        }
 
-        window.addEventListener('DOMContentLoaded', () => {
-            const projectId = window.location.hash.substring(1);
-            if (projectId) {
-                loadAndRenderProject(projectId);
-            } else {
-                showStatus("Error: No project ID specified. Append #PROJECT_ID to the URL.", true);
-            }
+            document.title = `Loading: ${hostedProjectId}...`; 
+
+            const projectRef = db.ref(`hosted_content/${hostedProjectId}`);
+            projectRef.once('value')
+                .then(snapshot => {
+                    if (snapshot.exists()) {
+                        const hostedData = snapshot.val();
+                        if (hostedData && hostedData.files && hostedData.files["index.html"]) {
+                            let indexHtmlContent = hostedData.files["index.html"];
+                            const projectFiles = hostedData.files;
+
+                            // Naive inlining of CSS and JS for srcdoc (same as editor preview)
+                            // This makes relative paths work within the single srcdoc context.
+                            // More robust solution would involve service workers or Blob URLs if complexity allows.
+                            indexHtmlContent = indexHtmlContent.replace(/<link.*?href=["'](.*?)["'][^>]*>/gi, (match, href) => {
+                                const cleanHref = href.startsWith('./') ? href.substring(2) : href;
+                                if (projectFiles[cleanHref] && cleanHref.endsWith('.css')) {
+                                    return `<style data-inlined-href="${cleanHref}">\n${projectFiles[cleanHref]}\n</style>`;
+                                }
+                                return match; 
+                            });
+                            indexHtmlContent = indexHtmlContent.replace(/<script.*?src=["'](.*?)["'][^>]*><\/script>/gi, (match, src) => {
+                                const cleanSrc = src.startsWith('./') ? src.substring(2) : src;
+                                if (projectFiles[cleanSrc] && cleanSrc.endsWith('.js')) {
+                                    return `<script data-inlined-src="${cleanSrc}">\n${projectFiles[cleanSrc]}\n<\/script>`;
+                                }
+                                return match;
+                            });
+                            
+                            // For images or other assets, this srcdoc approach is limited.
+                            // You'd typically need to store assets in Firebase Storage and replace paths with public URLs.
+                            // Example for images (very basic, assumes root paths):
+                            // indexHtmlContent = indexHtmlContent.replace(/<img.*?src=["'](.*?)["'][^>]*>/gi, (match, src) => {
+                            //     const cleanSrc = src.startsWith('./') ? src.substring(2) : src;
+                            //     if (projectFiles[cleanSrc]) { // This assumes image data is stored as base64 or similar
+                            //         // This part is tricky. If files[cleanSrc] is image data (e.g. base64), use it.
+                            //         // If it's just a placeholder for a Storage URL, you'd fetch that URL.
+                            //         // For now, this is highly simplified.
+                            //         // return `<img src="${projectFiles[cleanSrc]}" alt="${cleanSrc}">`; // If projectFiles[cleanSrc] IS image data
+                            //     }
+                            //     return match;
+                            // });
+
+
+                            contentFrame.srcdoc = indexHtmlContent;
+                            statusDisplay.style.display = 'none';
+                            contentFrame.style.display = 'block';
+                            document.title = hostedData.originalProjectName ? `View: ${hostedData.originalProjectName}` : `View Project: ${hostedProjectId}`;
+                        } else {
+                            showStatus(`Error: Project data for '${hostedProjectId}' is incomplete, malformed, or missing 'index.html'.`, true);
+                        }
+                    } else {
+                        showStatus(`Error: Project '${hostedProjectId}' not found.`, true);
+                    }
+                })
+                .catch(error => {
+                    console.error("Error fetching project:", error);
+                    showStatus(`Error loading project: ${error.message}`, true);
+                });
         });
     </script>
 </body>
