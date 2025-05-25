@@ -18,11 +18,9 @@
 <body>
     <div id="statusDisplay" class="status-message">Loading project...</div>
     <iframe id="contentFrame" style="display: none;" sandbox="allow-scripts allow-forms allow-popups allow-modals allow-same-origin"></iframe>
-    <!-- `allow-same-origin` is often needed for Blob URLs to correctly resolve within the iframe, -->
-    <!-- especially if scripts within the iframe try to access other blob resources. -->
 
     <script>
-        const firebaseConfig = { // Using the same config as editor
+        const firebaseConfig = {
           apiKey: "AIzaSyD3kO_ULF76RJkJf1yhvo5cdM4Hoqo4fHA",
           authDomain: "abcoinseo-e2f66.firebaseapp.com",
           databaseURL: "https://abcoinseo-e2f66-default-rtdb.firebaseio.com",
@@ -36,7 +34,16 @@
 
         const statusDisplay = document.getElementById('statusDisplay');
         const contentFrame = document.getElementById('contentFrame');
-        const blobUrlMap = new Map(); // To store filename -> blobUrl
+        const blobUrlMap = new Map();
+
+        function desanitizeFirebaseKey(sanitizedKey) { // Must match editor's version
+            return sanitizedKey.replace(/_dot_/g, '.')
+                               .replace(/_hash_/g, '#')
+                               .replace(/_dollar_/g, '$')
+                               .replace(/_slash_/g, '/')
+                               .replace(/_lbrack_/g, '[')
+                               .replace(/_rbrack_/g, ']');
+        }
 
         function getMimeType(filename) {
             const extension = filename.split('.').pop().toLowerCase();
@@ -50,7 +57,6 @@
                 case 'gif': return 'image/gif';
                 case 'svg': return 'image/svg+xml';
                 case 'txt': return 'text/plain';
-                // Add more as needed (woff, ttf, mp4, etc.)
                 default: return 'application/octet-stream';
             }
         }
@@ -68,122 +74,96 @@
             try {
                 const snapshot = await db.ref(`hosted_projects/${projectId}`).once('value');
                 if (!snapshot.exists()) {
-                    showStatus(`Error: Project '${projectId}' not found. It may have been deleted or the link is incorrect.`, true);
+                    showStatus(`Error: Project '${projectId}' not found. Link may be invalid or project deleted.`, true);
                     return;
                 }
 
                 const projectData = snapshot.val();
                 if (!projectData.files || Object.keys(projectData.files).length === 0) {
-                    showStatus(`Error: Project '${projectId}' contains no files.`, true);
+                    showStatus(`Error: Project '${projectId}' is empty or corrupted.`, true);
                     return;
                 }
 
                 document.title = projectData.originalProjectName ? `View: ${projectData.originalProjectName}` : `View Project: ${projectId}`;
+                blobUrlMap.clear();
+                const originalFiles = {};
 
-                // 1. Create Blob URLs for all files
-                for (const filename in projectData.files) {
-                    if (projectData.files.hasOwnProperty(filename)) {
-                        const content = projectData.files[filename];
-                        const mimeType = getMimeType(filename);
+                for (const sanitizedFilename in projectData.files) {
+                    if (projectData.files.hasOwnProperty(sanitizedFilename)) {
+                        const originalFilename = desanitizeFirebaseKey(sanitizedFilename);
+                        const content = projectData.files[sanitizedFilename];
+                        const mimeType = getMimeType(originalFilename);
                         const blob = new Blob([content], { type: mimeType });
-                        blobUrlMap.set(filename, URL.createObjectURL(blob));
+                        blobUrlMap.set(originalFilename, URL.createObjectURL(blob));
+                        originalFiles[originalFilename] = content;
                     }
                 }
 
-                // 2. Get the main HTML file content
                 const mainFileName = projectData.mainFile || 'index.html';
-                if (!projectData.files[mainFileName] || !blobUrlMap.has(mainFileName)) {
-                     showStatus(`Error: Main HTML file ('${mainFileName}') not found in project '${projectId}'.`, true);
+                if (!originalFiles[mainFileName] || !blobUrlMap.has(mainFileName)) {
+                     showStatus(`Error: Main file ('${mainFileName}') missing in project '${projectId}'.`, true);
                     return;
                 }
-                let mainHtmlContent = projectData.files[mainFileName];
-
-                // 3. Rewrite relative URLs in the main HTML content
-                // This is a simplified parser. For robustness, a proper HTML parser might be needed.
-                // Regex to find src="..." and href="..." attributes with relative paths.
-                // It avoids absolute URLs (http://, https://, //, data:) and mailto:.
-                const relativeUrlRegex = /(src|href)\s*=\s*["'](?!(?:https?:\/\/|\/\/|data:|mailto:))([^"']+)["']/gi;
+                let mainHtmlContent = originalFiles[mainFileName];
                 
-                mainHtmlContent = mainHtmlContent.replace(relativeUrlRegex, (match, attr, path) => {
-                    const cleanedPath = path.startsWith('./') ? path.substring(2) : path; // Remove leading ./
-                    if (blobUrlMap.has(cleanedPath)) {
-                        return `${attr}="${blobUrlMap.get(cleanedPath)}"`;
-                    }
-                    // If the path is not in our blob map, keep it as is (might be an external link or an error)
-                    // Or, you could log a warning here.
-                    console.warn(`Relative path "${cleanedPath}" not found in project files. Keeping original.`);
-                    return match; 
-                });
-                
-                // 4. Inject a <base> tag to help resolve other relative paths if any are missed (experimental)
-                // The <base> tag should point to a dummy blob URL directory to ensure that any remaining relative paths
-                // are resolved against a context that won't accidentally try to fetch from the parent `view.html`'s origin.
-                // However, this might conflict with Blob URLs if not handled carefully.
-                // For now, primary reliance is on the regex replacement.
-                // A more robust solution would involve parsing the DOM.
-
-                // A simple DOM parsing approach for rewriting:
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(mainHtmlContent, 'text/html');
                 
-                // Add a base href using a dummy blob URL to make sure all relative paths resolve within the "blob space"
-                // Create a dummy base blob URL for the "root" of the project
-                const baseBlob = new Blob([''], {type: 'text/html'});
+                const baseBlob = new Blob([''], {type: 'text/html'}); // Dummy blob for base href
                 const baseBlobUrl = URL.createObjectURL(baseBlob);
-                // Get path part only
                 const baseHrefPath = baseBlobUrl.substring(0, baseBlobUrl.lastIndexOf('/') + 1);
+                URL.revokeObjectURL(baseBlobUrl); // Clean up dummy blob URL immediately
 
                 let baseTag = doc.querySelector('base');
                 if (!baseTag) {
                     baseTag = doc.createElement('base');
                     doc.head.insertBefore(baseTag, doc.head.firstChild);
                 }
-                baseTag.setAttribute('href', baseHrefPath); // Set base for all relative links
+                baseTag.setAttribute('href', baseHrefPath);
 
                 doc.querySelectorAll('[href]').forEach(el => {
                     let path = el.getAttribute('href');
-                    if (path && !path.startsWith('http') && !path.startsWith('//') && !path.startsWith('data:') && !path.startsWith('mailto:') && !path.startsWith('#')) {
+                    if (path && !path.startsWith('http') && !path.startsWith('//') && !path.startsWith('data:') && !path.startsWith('mailto:') && !path.startsWith('#') && !path.startsWith('blob:')) {
                         const cleanedPath = path.startsWith('./') ? path.substring(2) : path;
                         if (blobUrlMap.has(cleanedPath)) {
                             el.setAttribute('href', blobUrlMap.get(cleanedPath));
+                        } else {
+                             console.warn(`Unresolved href: ${path} (cleaned: ${cleanedPath})`);
                         }
                     }
                 });
                 doc.querySelectorAll('[src]').forEach(el => {
                      let path = el.getAttribute('src');
-                    if (path && !path.startsWith('http') && !path.startsWith('//') && !path.startsWith('data:')) {
+                    if (path && !path.startsWith('http') && !path.startsWith('//') && !path.startsWith('data:') && !path.startsWith('blob:')) {
                         const cleanedPath = path.startsWith('./') ? path.substring(2) : path;
                         if (blobUrlMap.has(cleanedPath)) {
                             el.setAttribute('src', blobUrlMap.get(cleanedPath));
+                        } else {
+                             console.warn(`Unresolved src: ${path} (cleaned: ${cleanedPath})`);
                         }
                     }
                 });
-                // Note: Rewriting url() in CSS is much harder and not covered here.
-                // Users should use full paths for background images in CSS or inline them if needed.
-
+                
                 const finalHtml = doc.documentElement.outerHTML;
-
-                // 5. Load into iframe
                 contentFrame.srcdoc = finalHtml;
                 statusDisplay.style.display = 'none';
                 contentFrame.style.display = 'block';
 
             } catch (error) {
                 console.error("Error loading or rendering project:", error);
-                showStatus(`An error occurred: ${error.message}`, true);
+                showStatus(`An critical error occurred: ${error.message}`, true);
             }
         }
 
         window.addEventListener('DOMContentLoaded', function() {
             const projectId = window.location.hash.substring(1);
             if (!projectId) {
-                showStatus("Error: No project ID specified in the URL. Please check the link.", true);
+                showStatus("Error: No project ID specified. Please check the URL.", true);
                 return;
             }
             loadAndRenderProject(projectId);
         });
 
-        // Clean up Blob URLs when the page is unloaded (optional, but good practice)
         window.addEventListener('unload', function() {
             blobUrlMap.forEach(url => URL.revokeObjectURL(url));
         });
